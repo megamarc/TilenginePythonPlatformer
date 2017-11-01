@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0.0" orientation="orthogonal" renderorder="right-down" width="120" height="23" tilewidth="16" tileheight="16" nextobjectid="1">
+ <tileset firstgid="1" source="layer_foreground.tsx"/>
+ <layer name="Capa de Patrones 1" width="120" height="23" offsetx="0" offsety="32">
+  <data encoding="base64" compression="zlib">
+   eJzt2PtvFFUUwPGzU5A/QND4AATRUotiNCpQ+FETHipPQVQqYv3Ft4lUkMcVTaUItTyq/gpBMVEEARWMWgXiI/EvENAffCsaI6JAQPhOdiZ7c7mzc2dndnab9CSf3M10Zu65596zpYj0R3/kF18Xyo+1iG6sxwZsDK6txTp05ZxLXH3i6lVPda2X+Bxf4Et8FVzbjwM4WKuk+kCYZ8gfPDRggGYgLqhBfmGcxhn8j7PBtRM4iVPafVE97drrLr04GVMwFdNwh2Y6ZmAmZlneb9Y3rOugmLyyilswDuMxQdOCiRnPdZuIuhVZvjOqp7Ps9ZVSTPo5rMILmg68iNXotDxr1jes66QM8jLD9jvtUTyGx/GE5kk8leHcyynRMjyLpViCZ9Cecr9tPV3uuhlmTWw1eg/v4wPsxYeaj/AxPkGv5f1mfZPWlX7w+8IpbL/T/NiK1/GGZhvezGjePezhbuzCu9iJHXgH2zPu56Rh1sRWo99xFH/gT/yl+RvH8A+OR8yh1zeurn5w7oXzL/SB0A9CX/j9ERu232l+fINDOKw5YjzbnmLe39jDX/ELfsZP+BE/4Psa769ZE1uNRvBLdCSuxChcrRmNJlyD5oh/F+v1NetqBuddOPfC+Rf6QOgHoS+E/vD7pGqRZt4rCqKGYxiG4nJchktxSaG2++sSc9m3ebgb83GvZgFacT8WZvB3D+ddOPfC+Rf6QOgHoS+E/vD7pGqRdt457ONszMJMzMB03NkH9tePLvbuZXRjg2YTevBKRn/Tct6Fcy+cf6EPhH4Q+kLoD79PqhZZzLuGvezE6mBPO/rI3uYZnHfh3AvnX+gDoR+EvvD7o0/M29m/p+fFRdTwYq2OHcFn+sCvV25hzrvGmNvM0xb1tL8u+VYSwz2+0zACI9GI0WhCM8YUPyuuKX6mppHD7YXSfbreQnFswURM8tLlNpTnh3nn5xg3r597mOcoPl/llcZwTY3F51STl23OSdbRqOVl5murr8nPfWyE8Pk5uAtzMQ/3YQFasRAPFD8rril+plaRw/OF0n261uI7VBvj01iMdizB0oTjMizHipgco/II85zP53u80hiuSX9HVM6V5m6O5dYR5mXma1uXbZ1tEcLnX8JarEMXNmITevAqXit+VlxT/EztJYd9hdJ9up7iO9Q2xrfwNrZjB3YmHHdhN/bE5BiVR5hnN5/Xe6UxXJP+jqicK83dHMutI8zLzNe2Lts6H2qwC5//DPtxAAfL3O+Kd6gjvOdbfOel+17r5flPq5BjNXOu5Tps/mOeEziJU8GcpxnPOMzvoQEDMDC4xjvUhYyDMaQhXV2Ok8O/nj3Hs/4+VLDeauecdB0uXPfDdu+1uA5jcX1w7Qbc6PCucRiPCWgJrvEONZlxCqamrFUzz4+JyPEm3Oy4f3nmnHQdLlz3w3bvIjyItgzOTijL7zr//+IWWeZ4GI847l/eOSdZR5pau9wfd6aSnJ1QU/B/oFnWxpxjM7YkzCvPnF3XkabWLvdX+p2Rd53ialOPOee9Dpu47+d6qlO1apPX3lZ7HTbnABJ1a1U=
+  </data>
+ </layer>
+</map>
