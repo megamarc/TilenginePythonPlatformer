@@ -1,19 +1,28 @@
+""" Tilengine python platformer demo """
 from tilengine import *
 
-# constantes
-WIDTH  = 640
+# constants
+WIDTH = 640
 HEIGHT = 360
+sky_color1 = Color(120, 215, 242)
+sky_color2 = Color(226, 236, 242)
+
+# Game management definitions *************************************************
 
 class State(object):
+	""" player states """
 	Undefined, Idle, Run, Jump = range(4)
 
 class Direction(object):
+	""" player orientations """
 	Right, Left = range(2)
 	
 class Tiles(object):
+	""" types of tiles for sprite-terrain collision detection """
 	Empty, Floor, Gem = range(3)
 	
 class Player(object):
+	""" main player entity """
 	speeds = (2, -2)
 	def __init__(self):
 		self.state = State.Undefined
@@ -68,8 +77,9 @@ class Player(object):
 			
 		self.sprite.set_position(self.x - world.x, int(self.y))
 		return True
-		
+
 class World(object):
+	""" world/play field entity """
 	def __init__(self):
 		self.foreground = engine.layers[0]
 		self.background = engine.layers[1]
@@ -90,26 +100,30 @@ class World(object):
 		self.foreground.set_position(self.x, 0)
 		self.background.set_position(self.x/8, 0)
 		return True
-		
-# linear interpolation
+
+# Raster effect related functions *********************************************
+
 def lerp(pos_x, x0, x1, fx0, fx1):
+	""" integer linear interpolation """
 	return fx0 + (fx1 - fx0) * (pos_x - x0) // (x1 - x0)
 
 def interpolate_color(x, x1, x2, color1, color2):
+	""" linear interpolation between two Color objects """
 	r = lerp(x, x1, x2, color1.r, color2.r)
 	g = lerp(x, x1, x2, color1.g, color2.g)
 	b = lerp(x, x1, x2, color1.b, color2.b)
 	return Color(r, g, b)
 	
 def raster_effect(line):
-	if line >= 0 and line <= 128:
-		color = interpolate_color(line, 0, 128, sky_color, sky_color2)
+	""" raster effect callback, called every rendered scanline """
+	if 0 <= line <= 128:
+		color = interpolate_color(line, 0, 128, sky_color1, sky_color2)
 		engine.set_background_color(color)
 		
 	if line is 0:
 		world.background.set_position(int(world.clouds), 0)
 	
-	elif line >= 160 and line < 208:
+	elif 160 <= line <= 208:
 		pos1 = world.x//10
 		pos2 = world.x//3
 		xpos = lerp(line, 160, 208, pos1, pos2)
@@ -118,12 +132,9 @@ def raster_effect(line):
 	elif line is 256:
 		world.background.set_position(world.x//2, 0)
 
-sky_color  = Color(120, 215, 242)
-sky_color2 = Color(226, 236, 242)
-
 # init engine
 engine = Engine.create(WIDTH, HEIGHT, 2, 32, 32)
-engine.set_background_color(sky_color)
+engine.set_background_color(sky_color1)
 engine.layers[0].setup(Tilemap.fromfile("layer_foreground.tmx"))
 engine.layers[1].setup(Tilemap.fromfile("layer_background.tmx"))
 
@@ -137,9 +148,9 @@ tile_info = TileInfo()
 # set raster callback
 engine.set_raster_callback(raster_effect)
 
-actors = list()		# this list contains every game entity
+actors = list()		# this list contains every active game entity
 world = World()		# world/level entity
-player = Player()	# player entity
+player = Player()   # player entity
 actors.append(world)
 actors.append(player)
 
@@ -161,7 +172,7 @@ while window.process():
 		if window.get_input(Input.A):
 			player.set_jump()
 		
-	# update entities list
+	# update active entities list
 	index = 0
 	while index < len(actors):
 		alive = actors[index].update()
