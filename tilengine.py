@@ -896,7 +896,6 @@ class Tilemap(object):
 
 	def set_tile(self, row, col, tile_info):
 		"""
-		
 		:param row: Vertical position of the tile (0 <= row < rows)
 		:param col: Horizontal position of the tile (0 <= col < cols)
 		:param tile_info: pointer to user-provided `Tile` object 

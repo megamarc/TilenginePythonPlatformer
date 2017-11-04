@@ -9,7 +9,14 @@ The features implemented so far are:
 * Basic list of game entities (actors)
 * Three character states: idle, running and jumping
 * Tileset attributes in Tiled editor: *type* and *priority*
+* Player/level interaction: the player can jump on platforms, get blocked by walls and pick gems
 ## Acknowledge
 Graphic assets are copyrighted and owned by their original authors
 * Backgrounds created by ansimuth: https://ansimuz.itch.io/magic-cliffs-environment
 * Player character created by Jesse M: https://jesse-m.itch.io/jungle-pack
+## Changelist
+### WIP2
+* implemented level interaction: platforms, walls and gems
+* shows Layer::get_tile() and Tilemap::set_tile()
+### WIP1
+* initial version with basic character movement and constant floor

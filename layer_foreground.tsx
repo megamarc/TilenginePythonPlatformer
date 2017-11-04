@@ -1,6 +1,111 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <tileset name="layer_foreground" tilewidth="16" tileheight="16" tilecount="972" columns="54">
  <image source="layer_foreground.png" trans="ff00ff" width="864" height="288"/>
+ <tile id="54">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="55">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="56">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="57">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="58">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="59">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="126">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="127">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="128">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="129">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="131">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="133">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="134">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="135">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="136">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="194">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="198">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="199">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="248">
+  <properties>
+   <property name="type" value="3"/>
+  </properties>
+ </tile>
+ <tile id="252">
+  <properties>
+   <property name="type" value="3"/>
+  </properties>
+ </tile>
+ <tile id="253">
+  <properties>
+   <property name="type" value="3"/>
+  </properties>
+ </tile>
  <tile id="277">
   <properties>
    <property name="priority" value="true"/>
@@ -19,6 +124,31 @@
  <tile id="332">
   <properties>
    <property name="priority" value="true"/>
+  </properties>
+ </tile>
+ <tile id="379">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="380">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="381">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="385">
+  <properties>
+   <property name="type" value="1"/>
+  </properties>
+ </tile>
+ <tile id="386">
+  <properties>
+   <property name="type" value="1"/>
   </properties>
  </tile>
  <tile id="459">
