@@ -14,7 +14,10 @@ The features implemented so far are:
 Graphic assets are copyrighted and owned by their original authors
 * Backgrounds created by ansimuth: https://ansimuz.itch.io/magic-cliffs-environment
 * Player character created by Jesse M: https://jesse-m.itch.io/jungle-pack
-## Changelist
+## Change list
+### WIP3
+* Implemented acceleration and air control
+* Added more collision points per side in the sprite: from 1x2 to 3x3
 ### WIP2
 * implemented level interaction: platforms, walls and gems
 * shows Layer::get_tile() and Tilemap::set_tile()

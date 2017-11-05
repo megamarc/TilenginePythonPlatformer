@@ -1,4 +1,6 @@
 """ Tilengine python platformer demo """
+# pylint: disable=C0103
+# pylint: disable=W0614
 from tilengine import *
 
 # constants
@@ -10,215 +12,284 @@ sky_color2 = Color(226, 236, 242)
 # Game management definitions *************************************************
 
 class State(object):
-	""" player states """
-	Undefined, Idle, Run, Jump = range(4)
+    """ player states """
+    Undefined, Idle, Run, Jump = range(4)
 
 class Direction(object):
-	""" player orientations """
-	Right, Left = range(2)
-	
+    """ player orientations """
+    Right, Left = range(2)
+
 class Tiles(object):
-	""" types of tiles for sprite-terrain collision detection """
-	Empty, Floor, Gem, Wall = range(4)
-	
+    """ types of tiles for sprite-terrain collision detection """
+    Empty, Floor, Gem, Wall = range(4)
+
 class Medium(object):
-	Floor, Air, Ladder, Water = range(4)
+    """ types of environments """
+    Floor, Air, Ladder, Water = range(4)
 
 class Player(object):
-	""" main player entity """
-	speeds = (2, -2)
-	def __init__(self):
-		self.state = State.Undefined
-		self.direction = Direction.Right
-		self.x = 60
-		self.y = 188
-		self.xspeed = 0
-		self.yspeed = 0.0
-		self.sprite_index = engine.get_available_sprite()
-		self.sprite = engine.sprites[self.sprite_index]
-		self.animation = engine.animations[engine.get_available_animation()]
-		self.sprite.setup(Spriteset.fromfile("hero"))
-		self.set_idle()
-		sprite_info = SpriteInfo()
-		self.sprite.spriteset.get_sprite_info(0, sprite_info)
-		self.sprite.set_position(self.x, self.y)
-		self.width = sprite_info.w
-		self.height = sprite_info.h
-		self.medium = Medium.Floor
-		del sprite_info
+    """ main player entity """
+    xspeed_delta = 12
+    xspeed_limit = 200
+    yspeed_delta = 10
+    yspeed_limit = 280
+    jspeed_delta = 5
+    def __init__(self):
+        self.state = State.Undefined
+        self.direction = Direction.Right
+        self.x = 60
+        self.y = 188
+        self.xspeed = 0
+        self.yspeed = 0
+        self.sprite_index = engine.get_available_sprite()
+        self.sprite = engine.sprites[self.sprite_index]
+        self.animation = engine.animations[engine.get_available_animation()]
+        self.sprite.setup(Spriteset.fromfile("hero"))
+        self.set_idle()
+        sprite_info = SpriteInfo()
+        self.sprite.spriteset.get_sprite_info(0, sprite_info)
+        self.sprite.set_position(self.x, self.y)
+        self.width = sprite_info.w
+        self.height = sprite_info.h
+        self.medium = Medium.Floor
+        self.jump = False
+        del sprite_info
 
-	def set_idle(self):
-		if self.state is not State.Idle:
-			self.animation.set_sprite_animation(self.sprite_index, sequence_idle, 0)
-			self.state = State.Idle
-			self.xspeed = 0
-		
-	def set_running(self, dir):
-		self.xspeed = Player.speeds[dir]
-		if self.state is not State.Run:
-			self.animation.set_sprite_animation(self.sprite_index, sequence_run, 0)
-			self.state = State.Run
-		if self.direction is not dir:
-			self.direction = dir
-			if self.direction is Direction.Right:
-				self.sprite.set_flags(0)
-			else:
-				self.sprite.set_flags(Flags.FLIPX)
-					
-	def set_jump(self):
-		if self.state is not State.Jump:
-			self.yspeed = -2.8
-			self.animation.set_sprite_animation(self.sprite_index, sequence_jump, 0)
-			self.state = State.Jump
-			self.medium = Medium.Air
+    def set_idle(self):
+        """ sets idle state, idempotent """
+        if self.state is not State.Idle:
+            self.animation.set_sprite_animation(self.sprite_index, sequence_idle, 0)
+            self.state = State.Idle
+            self.xspeed = 0
 
-	def update(self):
-		oldx = self.x
-		oldy = self.y
+    def set_running(self):
+        """ sets running state, idempotent """
+        if self.state is not State.Run:
+            self.animation.set_sprite_animation(self.sprite_index, sequence_run, 0)
+            self.state = State.Run
 
-		# user input: move character
-		if self.medium is Medium.Floor:
-			if window.get_input(Input.RIGHT):
-				self.set_running(Direction.Right)
-			elif window.get_input(Input.LEFT):
-				self.set_running(Direction.Left)
-			else:
-				self.set_idle()
-			if window.get_input(Input.A):
-				player.set_jump()
+    def set_jump(self):
+        """ sets jump state, idempotent """
+        if self.state is not State.Jump:
+            self.yspeed = -Player.yspeed_limit
+            self.animation.set_sprite_animation(self.sprite_index, sequence_jump, 0)
+            self.state = State.Jump
+            self.medium = Medium.Air
 
-		elif self.medium is Medium.Air and self.yspeed < 2.8:
-			self.yspeed += 0.1
+    def update_direction(self):
+        """ updates sprite facing depending on direction """
+        if window.get_input(Input.RIGHT):
+            direction = Direction.Right
+        elif window.get_input(Input.LEFT):
+            direction = Direction.Left
+        else:
+            direction = self.direction
+        if self.direction is not direction:
+            self.direction = direction
+            if self.direction is Direction.Right:
+                self.sprite.set_flags(0)
+            else:
+                self.sprite.set_flags(Flags.FLIPX)
 
-		self.x += self.xspeed
-		self.y += self.yspeed
+    def update_floor(self):
+        """ process input when player is in floor medium """
+        if window.get_input(Input.RIGHT) and self.xspeed < Player.xspeed_limit:
+            self.xspeed += self.xspeed_delta
+            self.set_running()
+        elif window.get_input(Input.LEFT) and self.xspeed > -Player.xspeed_limit:
+            self.xspeed -= Player.xspeed_delta
+            self.set_running()
+        elif abs(self.xspeed) < Player.xspeed_delta:
+            self.xspeed = 0
+        elif self.xspeed > 0:
+            self.xspeed -= Player.xspeed_delta
+        elif self.xspeed < 0:
+            self.xspeed += Player.xspeed_delta
+        if self.xspeed == 0:
+            self.set_idle()
+        if window.get_input(Input.A):
+            if self.jump is not True:
+                player.set_jump()
+                self.jump = True
+        else:
+            self.jump = False
 
-		# clip to world limits
-		if self.x < 0:
-			self.x = 0
-		elif self.x > world.foreground.width - self.width:
-			self.x = world.foreground.width	- self.width
+    def update_air(self):
+        """ process input when player is in air medium """
+        if window.get_input(Input.RIGHT) and self.xspeed < Player.xspeed_limit:
+            self.xspeed += self.jspeed_delta
+        elif window.get_input(Input.LEFT) and self.xspeed > -Player.xspeed_limit:
+            self.xspeed -= self.jspeed_delta
+        if self.yspeed < Player.yspeed_limit:
+            self.yspeed += Player.yspeed_delta
 
-		# check ceiling
-		if self.yspeed < 0.0:
-			world.foreground.get_tile(self.x + self.width/2, int(self.y), tile_info1)
-			if tile_info1.type is Tiles.Wall:
-				self.y = (tile_info1.row + 1) * 16
-				self.yspeed = 0.0
-		
-		# check floor
-		if self.yspeed >= 0.0:
-			world.foreground.get_tile(self.x + self.width/2, int(self.y) + self.height, tile_info1)
-			if tile_info1.type is Tiles.Floor:
-				self.y = (tile_info1.row * 16) - self.height
-				self.yspeed = 0.0
-				if self.medium is Medium.Air:
-					self.medium = Medium.Floor
-					self.set_idle()
-			else:
-				self.yspeed += 0.1
-				if self.medium is Medium.Floor:
-					self.medium = Medium.Air
+    def check_left(self, x, y):
+        """ checks/adjusts environment collision when player is moving to the left """
+        world.foreground.get_tile(x, y + 4, tiles_info[0])
+        world.foreground.get_tile(x, y + 18, tiles_info[1])
+        world.foreground.get_tile(x, y + 34, tiles_info[2])
+        if Tiles.Wall in (tiles_info[0].type, tiles_info[1].type, tiles_info[2].type):
+            self.x = (tiles_info[0].col + 1) * 16
+            self.xspeed = 0
+        world.pick_gem(tiles_info)
 
-		# check right collision
-		if self.xspeed > 0:
-			world.foreground.get_tile(self.x + self.width, int(self.y) + 12, tile_info1)
-			world.foreground.get_tile(self.x + self.width, int(self.y) + 24, tile_info2)
-			if tile_info1.type is Tiles.Wall or tile_info2.type is Tiles.Wall:
-				self.x = (tile_info1.col * 16) - self.width
-				self.xspeed = 0
-			if tile_info1.type is Tiles.Gem:
-				world.pick_gem(tile_info1)
-			elif tile_info2.type is Tiles.Gem:
-				world.pick_gem(tile_info2)
-		
-		# check left collision
-		elif self.xspeed < 0:
-			world.foreground.get_tile(self.x, int(self.y) + 12, tile_info1)
-			world.foreground.get_tile(self.x, int(self.y) + 24, tile_info2)
-			if tile_info1.type is Tiles.Wall or tile_info2.type is Tiles.Wall:
-				self.x = (tile_info1.col + 1) * 16
-				self.xspeed = 0
+    def check_right(self, x, y):
+        """ checks/adjusts environment collision when player is moving to the right """
+        world.foreground.get_tile(x + self.width, y + 4, tiles_info[0])
+        world.foreground.get_tile(x + self.width, y + 18, tiles_info[1])
+        world.foreground.get_tile(x + self.width, y + 34, tiles_info[2])
+        if Tiles.Wall in (tiles_info[0].type, tiles_info[1].type, tiles_info[2].type):
+            self.x = (tiles_info[0].col * 16) - self.width
+            self.xspeed = 0
+        world.pick_gem(tiles_info)
 
-		if self.x is not oldx or self.y is not oldy:
-			self.sprite.set_position(self.x - world.x, int(self.y))
-		return True
+    def check_top(self, x, y):
+        """ checks/adjusts environment collision when player is jumping """
+        world.foreground.get_tile(x + 0, y, tiles_info[0])
+        world.foreground.get_tile(x + 12, y, tiles_info[1])
+        world.foreground.get_tile(x + 24, y, tiles_info[2])
+        if Tiles.Wall in (tiles_info[0].type, tiles_info[1].type, tiles_info[2].type):
+            self.y = (tiles_info[0].row + 1) * 16
+            self.yspeed = 0
+        world.pick_gem(tiles_info)
+
+    def check_bottom(self, x, y):
+        """ checks/adjusts environment collision when player is falling or running """
+        world.foreground.get_tile(x + 0, y + self.height, tiles_info[0])
+        world.foreground.get_tile(x + 12, y + self.height, tiles_info[1])
+        world.foreground.get_tile(x + 24, y + self.height, tiles_info[2])
+        if Tiles.Floor in (tiles_info[0].type, tiles_info[1].type, tiles_info[2].type):
+            self.y = (tiles_info[0].row * 16) - self.height
+            self.yspeed = 0
+            if self.medium is Medium.Air:
+                self.medium = Medium.Floor
+                if self.xspeed == 0:
+                    self.set_idle()
+                else:
+                    self.set_running()
+        else:
+            self.yspeed += Player.yspeed_delta
+            if self.medium is Medium.Floor:
+                self.medium = Medium.Air
+        world.pick_gem(tiles_info)
+
+    def update(self):
+        """ process input and updates state once per frame """
+        oldx = self.x
+        oldy = self.y
+
+        # update sprite facing
+        self.update_direction()
+
+        # user input: move character depending on medium
+        if self.medium is Medium.Floor:
+            self.update_floor()
+        elif self.medium is Medium.Air:
+            self.update_air()
+
+        self.x += (self.xspeed / 100.0)
+        self.y += (self.yspeed / 100.0)
+
+        # clip to world limits
+        if self.x < 0.0:
+            self.x = 0.0
+        elif self.x > world.foreground.width - self.width:
+            self.x = world.foreground.width	- self.width
+
+        # check and fix 4-way collisions depending on motion direction
+        intx = int(self.x)
+        inty = int(self.y)
+        if self.yspeed < 0:
+            self.check_top(intx, inty)
+        elif self.yspeed >= 0:
+            self.check_bottom(intx, inty)
+        if self.xspeed < 0:
+            self.check_left(intx, inty)
+        elif self.xspeed > 0:
+            self.check_right(intx, inty)
+
+        if self.x is not oldx or self.y is not oldy:
+            self.sprite.set_position(int(self.x) - world.x, int(self.y))
+        return True
 
 class World(object):
-	""" world/play field entity """
-	def __init__(self):
-		self.foreground = engine.layers[0]
-		self.background = engine.layers[1]
-		self.x = 0
-		self.x_max = self.foreground.width - WIDTH
-		self.clouds = 0.0
-		
-	def pick_gem(self, tile_info):
-		tile = Tile()
-		tile.index = 0
-		self.foreground.tilemap.set_tile(tile_info.row, tile_info.col, tile)
-		del tile
+    """ world/play field entity """
+    def __init__(self):
+        self.foreground = engine.layers[0]
+        self.background = engine.layers[1]
+        self.x = 0
+        self.x_max = self.foreground.width - WIDTH
+        self.clouds = 0.0
 
-	def update(self):
-		oldx = self.x
+    def pick_gem(self, tiles_list):
+        """ updates tilemap when player picks a gem """
+        tile = Tile()
+        tile.index = 0
+        for tile_info in tiles_list:
+            if tile_info.type is Tiles.Gem:
+                self.foreground.tilemap.set_tile(tile_info.row, tile_info.col, tile)
+        del tile
 
-		if player.x < 240:
-			self.x = 0
-		else:
-			self.x = player.x - 240
-		if self.x > self.x_max:
-			self.x = self.x_max
-		self.clouds += 0.1
-			
-		if self.x is not oldx:
-			self.foreground.set_position(self.x, 0)
-			self.background.set_position(self.x/8, 0)
-		return True
+    def update(self):
+        """ updates world state once per frame """
+        oldx = self.x
+
+        if player.x < 240:
+            self.x = 0
+        else:
+            self.x = int(player.x - 240)
+        if self.x > self.x_max:
+            self.x = self.x_max
+        self.clouds += 0.1
+
+        if self.x is not oldx:
+            self.foreground.set_position(self.x, 0)
+            self.background.set_position(self.x/8, 0)
+        return True
 
 # Raster effect related functions *********************************************
 
 def lerp(pos_x, x0, x1, fx0, fx1):
-	""" integer linear interpolation """
-	return fx0 + (fx1 - fx0) * (pos_x - x0) // (x1 - x0)
+    """ integer linear interpolation """
+    return fx0 + (fx1 - fx0) * (pos_x - x0) // (x1 - x0)
 
 def interpolate_color(x, x1, x2, color1, color2):
-	""" linear interpolation between two Color objects """
-	r = lerp(x, x1, x2, color1.r, color2.r)
-	g = lerp(x, x1, x2, color1.g, color2.g)
-	b = lerp(x, x1, x2, color1.b, color2.b)
-	return Color(r, g, b)
-	
+    """ linear interpolation between two Color objects """
+    r = lerp(x, x1, x2, color1.r, color2.r)
+    g = lerp(x, x1, x2, color1.g, color2.g)
+    b = lerp(x, x1, x2, color1.b, color2.b)
+    return Color(r, g, b)
+
 def raster_effect(line):
-	""" raster effect callback, called every rendered scanline """
-	if 0 <= line <= 128:
-		color = interpolate_color(line, 0, 128, sky_color1, sky_color2)
-		engine.set_background_color(color)
-		
-	if line is 0:
-		world.background.set_position(int(world.clouds), 0)
-	
-	elif 160 <= line <= 208:
-		pos1 = world.x//10
-		pos2 = world.x//3
-		xpos = lerp(line, 160, 208, pos1, pos2)
-		world.background.set_position(xpos, 0)
-		
-	elif line is 256:
-		world.background.set_position(world.x//2, 0)
+    """ raster effect callback, called every rendered scanline """
+    if 0 <= line <= 128:
+        color = interpolate_color(line, 0, 128, sky_color1, sky_color2)
+        engine.set_background_color(color)
+
+    if line == 0:
+        world.background.set_position(int(world.clouds), 0)
+
+    elif 160 <= line <= 208:
+        pos1 = world.x//10
+        pos2 = world.x//3
+        xpos = lerp(line, 160, 208, pos1, pos2)
+        world.background.set_position(xpos, 0)
+
+    elif line == 256:
+        world.background.set_position(world.x//2, 0)
 
 # init engine
 engine = Engine.create(WIDTH, HEIGHT, 2, 32, 32)
-engine.set_background_color(sky_color1)
 engine.layers[0].setup(Tilemap.fromfile("layer_foreground.tmx"))
 engine.layers[1].setup(Tilemap.fromfile("layer_background.tmx"))
+engine.set_background_color(engine.layers[1].tilemap)
 
 # load sequences for player character
 sequences = SequencePack.fromfile("hero.sqx")
 sequence_idle = sequences.find_sequence("seq_idle")
 sequence_jump = sequences.find_sequence("seq_jump")
 sequence_run = sequences.find_sequence("seq_run")
-tile_info1 = TileInfo()
-tile_info2 = TileInfo()
+tiles_info = [TileInfo(), TileInfo(), TileInfo()]
 
 # set raster callback
 engine.set_raster_callback(raster_effect)
@@ -230,15 +301,15 @@ actors.append(world)
 actors.append(player)
 
 # window creation & main loop
-window = Window.create()
+window = Window.create(None, WindowFlags.S1)
 while window.process():
 
-	# update active entities list
-	index = 0
-	while index < len(actors):
-		alive = actors[index].update()
-		if not alive:
-			del actors[index]
-		index += 1
+    # update active entities list
+    index = 0
+    while index < len(actors):
+        alive = actors[index].update()
+        if not alive:
+            del actors[index]
+        index += 1
 
 engine.delete()
