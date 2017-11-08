@@ -21,7 +21,7 @@ class Direction(object):
 
 class Tiles(object):
     """ types of tiles for sprite-terrain collision detection """
-    Empty, Floor, Gem, Wall, SlopeUp = range(5)
+    Empty, Floor, Gem, Wall, SlopeUp, SlopeDown, InnerSlopeUp, InnerSlopeDown = range(8)
 
 class Medium(object):
     """ types of environments """
@@ -107,7 +107,7 @@ class Player(object):
             self.xspeed += Player.xspeed_delta
         if self.xspeed == 0:
             self.set_idle()
-        if window.get_input(Input.B):
+        if window.get_input(Input.A):
             if self.jump is not True:
                 player.set_jump()
                 self.jump = True
@@ -155,11 +155,49 @@ class Player(object):
 
     def check_bottom(self, x, y):
         """ checks/adjusts environment collision when player is falling or running """
+        ground = False
+
         world.foreground.get_tile(x + 0, y + self.height, tiles_info[0])
         world.foreground.get_tile(x + 12, y + self.height, tiles_info[1])
         world.foreground.get_tile(x + 24, y + self.height, tiles_info[2])
-        if Tiles.Floor in (tiles_info[0].type, tiles_info[1].type, tiles_info[2].type):
+        world.foreground.get_tile(x + 12, y + self.height - 1, tiles_info[3])
+
+        # check up slope
+        if tiles_info[3].type is Tiles.SlopeUp:
+            slope_height = 16 - tiles_info[3].xoffset
+            if self.yspeed >= 0 and tiles_info[3].yoffset > slope_height:
+                self.y -= (tiles_info[3].yoffset - slope_height)
+                ground = True
+
+        # check down slope
+        elif tiles_info[3].type is Tiles.SlopeDown:
+            slope_height = tiles_info[3].xoffset + 1
+            if self.yspeed >= 0 and tiles_info[3].yoffset > slope_height:
+                self.y -= (tiles_info[3].yoffset - slope_height)
+                ground = True
+
+        # check inner slope (avoid falling between staircased slopes)
+        elif tiles_info[1].type is Tiles.InnerSlopeUp:
+            if self.xspeed > 0:
+                self.y = (tiles_info[1].row * 16) - self.height - 1
+            else:
+                self.x -= 1
+            ground = True
+
+        elif tiles_info[1].type is Tiles.InnerSlopeDown:
+            if self.xspeed > 0:
+                self.x += 1
+            else:
+                self.y = (tiles_info[1].row * 16) - self.height - 1
+            ground = True
+
+        # check regular floor
+        elif Tiles.Floor in (tiles_info[0].type, tiles_info[1].type, tiles_info[2].type):
             self.y = (tiles_info[0].row * 16) - self.height
+            ground = True
+
+        # adjust to ground
+        if ground is True:
             self.yspeed = 0
             if self.medium is Medium.Air:
                 self.medium = Medium.Floor
@@ -316,7 +354,7 @@ sequence_idle = sequences.find_sequence("seq_idle")
 sequence_jump = sequences.find_sequence("seq_jump")
 sequence_run = sequences.find_sequence("seq_run")
 sequence_vanish = sequences.find_sequence("seq_vanish")
-tiles_info = [TileInfo(), TileInfo(), TileInfo()]
+tiles_info = [TileInfo(), TileInfo(), TileInfo(), TileInfo()]
 
 # set raster callback
 engine.set_raster_callback(raster_effect)

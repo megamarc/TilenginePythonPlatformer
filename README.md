@@ -10,11 +10,16 @@ The features implemented so far are:
 * Three character states: idle, running and jumping
 * Tileset attributes in Tiled editor: *type* and *priority*
 * Player/level interaction: the player can jump on platforms, get blocked by walls and pick gems
+* Inertial control and acceleration
+* Slopes
 ## Acknowledge
 Graphic assets are copyrighted and owned by their original authors
 * Backgrounds created by ansimuth: https://ansimuz.itch.io/magic-cliffs-environment
 * Player character created by Jesse M: https://jesse-m.itch.io/jungle-pack
 ## Change list
+### WIP4
+* Added animation entity effect for gem pickup feedback and possibly others
+* Implemented sloped terrain
 ### WIP3
 * Implemented acceleration and air control
 * Added more collision points per side in the sprite: from 1x2 to 3x3

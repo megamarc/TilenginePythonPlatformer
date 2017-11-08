@@ -348,17 +348,102 @@
    <property name="type" value="1"/>
   </properties>
  </tile>
+ <tile id="649">
+  <properties>
+   <property name="type" value="3"/>
+  </properties>
+ </tile>
+ <tile id="679">
+  <properties>
+   <property name="type" value="3"/>
+  </properties>
+ </tile>
+ <tile id="703">
+  <properties>
+   <property name="type" value="3"/>
+  </properties>
+ </tile>
+ <tile id="733">
+  <properties>
+   <property name="type" value="3"/>
+  </properties>
+ </tile>
+ <tile id="757">
+  <properties>
+   <property name="type" value="3"/>
+  </properties>
+ </tile>
+ <tile id="787">
+  <properties>
+   <property name="type" value="3"/>
+  </properties>
+ </tile>
  <tile id="792">
   <properties>
+   <property name="type" value="4"/>
+  </properties>
+ </tile>
+ <tile id="793">
+  <properties>
+   <property name="type" value="6"/>
+  </properties>
+ </tile>
+ <tile id="795">
+  <properties>
    <property name="type" value="5"/>
+  </properties>
+ </tile>
+ <tile id="811">
+  <properties>
+   <property name="type" value="3"/>
+  </properties>
+ </tile>
+ <tile id="841">
+  <properties>
+   <property name="type" value="3"/>
   </properties>
  </tile>
  <tile id="845">
   <properties>
+   <property name="type" value="4"/>
+  </properties>
+ </tile>
+ <tile id="846">
+  <properties>
+   <property name="type" value="6"/>
+  </properties>
+ </tile>
+ <tile id="849">
+  <properties>
+   <property name="type" type="int" value="7"/>
+  </properties>
+ </tile>
+ <tile id="850">
+  <properties>
    <property name="type" value="5"/>
   </properties>
  </tile>
+ <tile id="865">
+  <properties>
+   <property name="type" value="3"/>
+  </properties>
+ </tile>
  <tile id="898">
+  <properties>
+   <property name="type" value="4"/>
+  </properties>
+ </tile>
+ <tile id="899">
+  <properties>
+   <property name="type" value="6"/>
+  </properties>
+ </tile>
+ <tile id="904">
+  <properties>
+   <property name="type" type="int" value="7"/>
+  </properties>
+ </tile>
+ <tile id="905">
   <properties>
    <property name="type" value="5"/>
   </properties>
