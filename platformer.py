@@ -21,7 +21,7 @@ class Direction(object):
 
 class Tiles(object):
     """ types of tiles for sprite-terrain collision detection """
-    Empty, Floor, Gem, Wall = range(4)
+    Empty, Floor, Gem, Wall, SlopeUp = range(5)
 
 class Medium(object):
     """ types of environments """
@@ -107,7 +107,7 @@ class Player(object):
             self.xspeed += Player.xspeed_delta
         if self.xspeed == 0:
             self.set_idle()
-        if window.get_input(Input.A):
+        if window.get_input(Input.B):
             if self.jump is not True:
                 player.set_jump()
                 self.jump = True
@@ -228,6 +228,8 @@ class World(object):
         for tile_info in tiles_list:
             if tile_info.type is Tiles.Gem:
                 self.foreground.tilemap.set_tile(tile_info.row, tile_info.col, tile)
+                effect = Effect(tile_info.col*16, tile_info.row*16, sequence_vanish)
+                actors.append(effect)
         del tile
 
     def update(self):
@@ -245,6 +247,30 @@ class World(object):
         if self.x is not oldx:
             self.foreground.set_position(self.x, 0)
             self.background.set_position(self.x/8, 0)
+        return True
+
+class Effect(object):
+    """ placeholder for simple sprite effects """
+    spriteset = None
+    def __init__(self, x, y, sequence):
+        if Effect.spriteset is None:
+            Effect.spriteset = Spriteset.fromfile("effects")
+        index_spr = engine.get_available_sprite()
+        index_anm = engine.get_available_animation()
+        self.sprite = engine.sprites[index_spr]
+        self.animation = engine.animations[index_anm]
+        self.sprite.setup(Effect.spriteset)
+        self.sprite.set_position(x, y)
+        self.animation.set_sprite_animation(index_spr, sequence, 1)
+        self.x = x
+        self.y = y
+
+    def update(self):
+        """ updates effect state once per frame """
+        self.sprite.set_position(self.x - world.x, self.y)
+        if self.animation.get_state() is False:
+            self.sprite.disable()
+            return False
         return True
 
 # Raster effect related functions *********************************************
@@ -289,6 +315,7 @@ sequences = SequencePack.fromfile("hero.sqx")
 sequence_idle = sequences.find_sequence("seq_idle")
 sequence_jump = sequences.find_sequence("seq_jump")
 sequence_run = sequences.find_sequence("seq_run")
+sequence_vanish = sequences.find_sequence("seq_vanish")
 tiles_info = [TileInfo(), TileInfo(), TileInfo()]
 
 # set raster callback
@@ -301,7 +328,7 @@ actors.append(world)
 actors.append(player)
 
 # window creation & main loop
-window = Window.create(None, WindowFlags.S1)
+window = Window.create()
 while window.process():
 
     # update active entities list

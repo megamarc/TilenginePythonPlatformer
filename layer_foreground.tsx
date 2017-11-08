@@ -348,4 +348,19 @@
    <property name="type" value="1"/>
   </properties>
  </tile>
+ <tile id="792">
+  <properties>
+   <property name="type" value="5"/>
+  </properties>
+ </tile>
+ <tile id="845">
+  <properties>
+   <property name="type" value="5"/>
+  </properties>
+ </tile>
+ <tile id="898">
+  <properties>
+   <property name="type" value="5"/>
+  </properties>
+ </tile>
 </tileset>
