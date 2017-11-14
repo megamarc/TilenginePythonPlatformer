@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0.0" orientation="orthogonal" renderorder="right-down" width="170" height="23" tilewidth="16" tileheight="16" nextobjectid="1">
+<map version="1.0.0" orientation="orthogonal" renderorder="right-down" width="170" height="23" tilewidth="16" tileheight="16" nextobjectid="24">
  <tileset firstgid="1" source="layer_foreground.tsx"/>
+ <tileset firstgid="973" source="objects.tsx"/>
  <layer name="Capa de Patrones 1" width="170" height="23">
   <data encoding="base64" compression="zlib">
    eJztmumPFEUYh2t6QL97BuQWhXVRjEYFFj5qwg27IOu1C+L6xZvEAwRtOdZdhJVr1a+emCiCgIpGXQXikfgPeCx+8D5jVBQIiE8x3dmaSnV3dfd0z6zuL3lSnZqqfqve9zfVPSxCDGhAAxrQgLLQJwVzW6vqb+utVQXlMeu8VitunpJbcKAIgzwGw2nVXFQ/03SPGTATZsEchXkwHxqhKeJeJk+F9SWNq9fdr/npEevLS/qer4JJMBmmeDTA1LwXhq4Rwr0aqhA6kdRcPixKC38EVsNahXZ4FDqgM2C+1AbYCF0x+pLEldLr7td8msW+s9Qm2AxbYKvSfwfcCXfB3R73wLIM14IXpSfLtIp0r4QHYQUshwdq2LO6f16D1+EN2AdvKbwN78C70BMwX2o/HICDMfrixvWl1z1uzU01TCL9u/oBfAgfwcdK/7PwHDwPL3hshxcrsAZVeE7gPYEHBV4UeFJ685T24sc9sBtehV2wE16BHTXgVdNzV/fPT/Az/AK/wm8Kv8Mf8CccDpgvdQSOwrEYfXHjqlLrblPzsBrGVdC5eRxOwD9wUun/FD6Dz+ELj144lDC+SXhN4DmB9wQeFHhR4EmBN6VHxY948Qf4Hr6Db+Eb+Bq+qrJPTeeelO6f0Xh5DJwPY+FChfFQBxdBfcE8P6nixlWl1r03Ik5UDaNke27a6IxCiSQK+42J1wSeE3hP4EGBFwWeFHhTelSMKgh3JIyA4TAMzoOhMKSQn09tzs0gLWJuM1wH18ONCi3QCothSYV/e+cVN6qGQYp7bmap4fxwHAmjYDSMgWlO3+d4TeA5gfcEHhR4UeBJgTelR09pIX5cAE3QCPNhHszNyae252aYutjL47AJtihsg254IqN/H8ojrk0NpSp5blZaQ4pC3OT0scxjWLH0OV4TeE7gPYEHBV4UeFJ6s0zr8WQndHjebM/Io2nOzf+rompYS+emSXPw4lDYii+3OWWt20h/k+fVdm8/eFDgRelJozozPj8rcW7+13QOtTjX4szVa6iqmudm2PpnF0senQu3huB7dUGxb66+R1VBPrX9m0tUG+fc9PdfqdimNo8Yfqu/m42D8TCLz2bDWK4v8Pqi6CmU2gaY6qQ/N+W74wjD+2NQfD9unWH96j7W4Lu1sK6Eu6782u3gusNrO2F9sXyPapx6mODljc/cOm0t6rtuWqnnpikv45R96vv36xqGXPvEAPz5ecQwjVkI18Iip/w9bTXx18jfYVzfAC08C+l3l3B9szemRaMVmhnTRnsv3Af3w3JYEbNdCavgIW2NzUrs1pB16Ov3W9v5tuP0fITlIGku9DYsL/4+9f2b1m/aT1sA/vw8YpjGPAYbYCN0OX3vaPuI/6b8Hcb15lKfK9/bnuT6KWWcSnfpHu522pfgZdgBO2FXzHY37IG9IWvsDlmHvn6/tZ1vO07PR1gOkuZCb8Py4u9T379p/ab9BL0Dqe/wWccwjXmfvv1wAA6G3MMW7uH2cp9D8KWT7jnXw/z3nMqu0XZ+mjiVzEFeeal1/mZ/R+AoHPP2epz2hMW+HSjCIBjs9XEP90zas+DsYrp6HGYNfznmNZ6U9U+w37jzo8ZlnYO4ebHBtr5xx2YZ42K4BCbCpV7fZXC5xf0nwWSYAg1eH/dwp9POgJkpa1TP/AkBa7wCrrT0jUrYfNNcfZw+JuscxM2LDbb1jTs2yxhL4RZoC/g8yfepks88+Xe1pYYYt8Hthn6Tb0yY5pvm6uNs75/lcz8sL2lql6TWWcQwjYn6Tib5Psn/P7C4gn9nkzXRYzwNz8RcV5L5SeNUOge2eUlTuyS1ziKGaUzSZ0fe9YmqSS2Rh0f7Y17SEPXcr6X69Jea5OXR/paXNPwLYxOxVA==
   </data>
  </layer>
+ <objectgroup name="Capa de Objetos 1">
+  <object id="12" gid="974" x="656" y="48" width="32" height="32"/>
+  <object id="13" gid="974" x="832" y="32" width="32" height="32"/>
+  <object id="19" gid="974" x="896" y="32" width="32" height="32"/>
+  <object id="20" gid="974" x="928" y="48" width="32" height="32"/>
+  <object id="21" gid="974" x="960" y="64" width="32" height="32"/>
+  <object id="23" gid="974" x="992" y="80" width="32" height="32"/>
+ </objectgroup>
 </map>

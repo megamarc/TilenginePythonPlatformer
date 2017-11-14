@@ -14,4 +14,8 @@
 	<sequence name="seq_vanish" delay="4" loop="0">
 		0,1,2,3,4,5,6,7
 	</sequence>
+
+	<sequence name="seq_eagle" delay="6" loop="0">
+		0,1,2,3
+	</sequence>	
 </hero>
