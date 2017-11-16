@@ -49,6 +49,7 @@ class Medium(object):
 	Floor, Air, Ladder, Water = range(4)
 
 class Item(object):
+	""" Generic item declared in tilemap object layer awaiting to spawn """
 	Opossum, Eagle, Frog = range(3)
 	def __init__(self, item_type, x, y):
 		self.type = item_type
@@ -57,18 +58,23 @@ class Item(object):
 		self.alive = False
 
 	def try_spawn(self, x):
+		""" Tries to spawn an active game object depending on screen position and item type """
 		if self.alive is False and x < self.x < x + WIDTH:
 			self.alive = True
 			if self.type is Item.Eagle:
-				Eagle(self, self.x, self.y)
+				Eagle(self, self.x, self.y - Eagle.size[1])
+			elif self.type is Item.Opossum:
+				Opossum(self, self.x, self.y - Opossum.size[1])
 
 class Actor(object):
-	""" generic game entity base class """
+	""" Generic active game entity base class """
+	spriteset = None
 	def __init__(self, item_ref, x, y):
 		self.x = x
 		self.y = y
 		self.sprite = engine.sprites[engine.get_available_sprite()]
 		self.animation = engine.animations[engine.get_available_animation()]
+		self.sprite.setup(self.spriteset)
 		self.item = item_ref
 		actors.append(self)
 
@@ -76,31 +82,38 @@ class Actor(object):
 		self.animation.disable()
 		self.sprite.disable()
 		if self.item is not None:
-			world.objects.remove(self.item)
+			self.item.alive = False
+
+	def kill(self):
+		""" definitive kill of active game entity, removing from spawn-able item list too """
+		world.objects.remove(self.item)
+		self.item = None
+		actors.remove(self)
 
 class Player(Actor):
 	""" main player entity """
+	size = [24, 36]
 	xspeed_delta = 12
 	xspeed_limit = 200
 	yspeed_delta = 10
 	yspeed_limit = 280
 	jspeed_delta = 5
+
 	def __init__(self):
+		if type(self).spriteset is None:
+			type(self).spriteset = Spriteset.fromfile("hero")
+
 		Actor.__init__(self, None, 60, 188)
 		self.state = State.Undefined
 		self.direction = Direction.Right
 		self.xspeed = 0
 		self.yspeed = 0
-		self.sprite.setup(Spriteset.fromfile("hero"))
 		self.set_idle()
-		sprite_info = SpriteInfo()
-		self.sprite.spriteset.get_sprite_info(0, sprite_info)
 		self.sprite.set_position(self.x, self.y)
-		self.width = sprite_info.w
-		self.height = sprite_info.h
+		self.width = self.size[0]
+		self.height = self.size[1]
 		self.medium = Medium.Floor
 		self.jump = False
-		del sprite_info
 
 	def set_idle(self):
 		""" sets idle state, idempotent """
@@ -122,6 +135,12 @@ class Player(Actor):
 			self.animation.set_sprite_animation(self.sprite.index, sequence_jump, 0)
 			self.state = State.Jump
 			self.medium = Medium.Air
+
+	def set_bounce(self):
+		""" bounces on top of an enemy """
+		self.yspeed = -150
+		self.state = State.Jump
+		self.medium = Medium.Air
 
 	def update_direction(self):
 		""" updates sprite facing depending on direction """
@@ -239,7 +258,7 @@ class Player(Actor):
 			ground = True
 
 		# check regular floor
-		elif Tiles.Floor in (tiles_info[0].type, tiles_info[1].type, tiles_info[2].type):
+		elif Tiles.Floor in [tiles_info[0].type, tiles_info[1].type, tiles_info[2].type]:
 			self.y = (tiles_info[0].row * 16) - self.height
 			ground = True
 
@@ -257,6 +276,19 @@ class Player(Actor):
 			if self.medium is Medium.Floor:
 				self.medium = Medium.Air
 		world.pick_gem(tiles_info)
+
+	def check_jump_on_enemies(self, x, y):
+		""" checks jumping above an enemy. If so, kills it, bounces and spawns a death animation """
+		px, py = x+self.width/2, y+self.height
+		for actor in actors:
+			actor_type = type(actor)
+			if actor_type in [Eagle, Opossum]:
+				ex, ey = actor.x + actor.size[0]/2, actor.y
+				if abs(px - ex) < 25 and 5 < py - ey < 20:
+					actor.kill()
+					self.set_bounce()
+					Effect(actor.x, actor.y - 10, spriteset_death, sequence_death)
+		return
 
 	def update(self):
 		""" process input and updates state once per frame """
@@ -292,6 +324,8 @@ class Player(Actor):
 			self.check_left(intx, inty)
 		elif self.xspeed > 0:
 			self.check_right(intx, inty)
+		if self.yspeed > 0:
+			self.check_jump_on_enemies(intx, inty)
 
 		if self.x is not oldx or self.y is not oldy:
 			self.sprite.set_position(int(self.x) - world.x, int(self.y))
@@ -300,15 +334,15 @@ class Player(Actor):
 
 class Eagle(Actor):
 	""" Flying enemy """
-	spriteset = None
+	size = [40, 40]
+
 	def __init__(self, item_ref, x, y):
-		if Eagle.spriteset is None:
-			Eagle.spriteset = Spriteset.fromfile("eagle")
+		if type(self).spriteset is None:
+			type(self).spriteset = Spriteset.fromfile("enemy_eagle")
 
 		Actor.__init__(self, item_ref, x, y)
 		self.frame = 0
 		self.base_y = y
-		self.sprite.setup(Eagle.spriteset)
 		self.animation.set_sprite_animation(self.sprite.index, sequence_eagle, 0)
 
 	def update(self):
@@ -318,6 +352,52 @@ class Eagle(Actor):
 		self.frame += 1
 		self.sprite.set_position(self.x - world.x, self.y)
 		if self.x + 40 < world.x:
+			world.objects.remove(self.item)
+			self.item = None
+			return False
+		return True
+
+class Opossum(Actor):
+	""" Floor enemy. Chases player in a 80 pixel radius """
+	size = [36, 24]
+
+	def __init__(self, item_ref, x, y):
+		if type(self).spriteset is None:
+			type(self).spriteset = Spriteset.fromfile("enemy_opossum")
+
+		Actor.__init__(self, item_ref, x, y)
+		self.xspeed = -2
+		self.direction = Direction.Left
+		self.animation.set_sprite_animation(self.sprite.index, sequence_opossum, 0)
+
+	def update(self):
+		""" Update once per frame """
+		self.x += self.xspeed
+		if self.x - player.x < -80 and self.direction is Direction.Left:
+			self.direction = Direction.Right
+			self.xspeed = -self.xspeed
+			self.sprite.set_flags(Flags.FLIPX)
+		elif self.x - player.x > 80 and self.direction is Direction.Right:
+			self.direction = Direction.Left
+			self.xspeed = -self.xspeed
+			self.sprite.set_flags(0)
+
+		self.sprite.set_position(self.x - world.x, self.y)
+		if self.x + 40 < world.x or self.x > world.x + WIDTH:
+			return False
+		return True
+
+class Effect(Actor):
+	""" placeholder for simple sprite effects """
+	def __init__(self, x, y, spriteset, sequence):
+		self.spriteset = spriteset
+		Actor.__init__(self, None, x, y)
+		self.animation.set_sprite_animation(self.sprite.index, sequence, 1)
+
+	def update(self):
+		""" updates effect state once per frame """
+		self.sprite.set_position(self.x - world.x, self.y)
+		if self.animation.get_state() is False:
 			return False
 		return True
 
@@ -342,7 +422,7 @@ class World(object):
 		for tile_info in tiles_list:
 			if tile_info.type is Tiles.Gem:
 				self.foreground.tilemap.set_tile(tile_info.row, tile_info.col, tile)
-				Effect(tile_info.col*16, tile_info.row*16, sequence_vanish)
+				Effect(tile_info.col*16, tile_info.row*16, spriteset_vanish, sequence_vanish)
 				break
 		del tile
 
@@ -366,24 +446,6 @@ class World(object):
 		for item in self.objects:
 			item.try_spawn(self.x)
 
-		return True
-
-class Effect(Actor):
-	""" placeholder for simple sprite effects """
-	spriteset = None
-	def __init__(self, x, y, sequence):
-		if Effect.spriteset is None:
-			Effect.spriteset = Spriteset.fromfile("effects")
-		Actor.__init__(self, None, x, y)
-		self.sprite.setup(Effect.spriteset)
-		self.sprite.set_position(x, y)
-		self.animation.set_sprite_animation(self.sprite.index, sequence, 1)
-
-	def update(self):
-		""" updates effect state once per frame """
-		self.sprite.set_position(self.x - world.x, self.y)
-		if self.animation.get_state() is False:
-			return False
 		return True
 
 # Raster effect related functions *********************************************
@@ -420,24 +482,30 @@ def raster_effect(line):
 # init engine
 engine = Engine.create(WIDTH, HEIGHT, 2, 16, 16)
 
-# load sequences for player character
-sequences = SequencePack.fromfile("hero.sqx")
+# load spritesets for animation effects
+spriteset_vanish = Spriteset.fromfile("effect_vanish")
+spriteset_death = Spriteset.fromfile("effect_death")
+
+# load sequences
+sequences = SequencePack.fromfile("sequences.sqx")
 sequence_idle = sequences.find_sequence("seq_idle")
 sequence_jump = sequences.find_sequence("seq_jump")
 sequence_run = sequences.find_sequence("seq_run")
 sequence_vanish = sequences.find_sequence("seq_vanish")
+sequence_death = sequences.find_sequence("seq_death")
 sequence_eagle = sequences.find_sequence("seq_eagle")
+sequence_opossum = sequences.find_sequence("seq_opossum")
 tiles_info = [TileInfo(), TileInfo(), TileInfo(), TileInfo()]
 
 # set raster callback
 engine.set_raster_callback(raster_effect)
 
-actors = list()		# this list contains every active game entity
+actors = list()		# list that contains every active game entity
 world = World()		# world/level entity
 player = Player()   # player entity
 
 # window creation & main loop
-window = Window.create()
+window = Window.create(None, WindowFlags.S1)
 while window.process():
 
 	# update active entities list

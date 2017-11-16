@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0.0" orientation="orthogonal" renderorder="right-down" width="170" height="23" tilewidth="16" tileheight="16" nextobjectid="24">
+<map version="1.0.0" orientation="orthogonal" renderorder="right-down" width="170" height="23" tilewidth="16" tileheight="16" nextobjectid="57">
  <tileset firstgid="1" source="layer_foreground.tsx"/>
  <tileset firstgid="973" source="objects.tsx"/>
  <layer name="Capa de Patrones 1" width="170" height="23">
@@ -8,11 +8,14 @@
   </data>
  </layer>
  <objectgroup name="Capa de Objetos 1">
-  <object id="12" gid="974" x="656" y="48" width="32" height="32"/>
-  <object id="13" gid="974" x="832" y="32" width="32" height="32"/>
-  <object id="19" gid="974" x="896" y="32" width="32" height="32"/>
-  <object id="20" gid="974" x="928" y="48" width="32" height="32"/>
-  <object id="21" gid="974" x="960" y="64" width="32" height="32"/>
-  <object id="23" gid="974" x="992" y="80" width="32" height="32"/>
+  <object id="40" gid="973" x="928" y="224" width="32" height="32"/>
+  <object id="41" gid="973" x="1280" y="224" width="32" height="32"/>
+  <object id="42" gid="973" x="1760" y="224" width="32" height="32"/>
+  <object id="46" gid="973" x="704" y="224" width="32" height="32"/>
+  <object id="49" gid="974" x="1072" y="64" width="32" height="32"/>
+  <object id="53" gid="974" x="1488" y="176" width="32" height="32"/>
+  <object id="54" gid="973" x="2240" y="224" width="32" height="32"/>
+  <object id="55" gid="974" x="2400" y="64" width="32" height="32"/>
+  <object id="56" gid="974" x="2688" y="64" width="32" height="32"/>
  </objectgroup>
 </map>
