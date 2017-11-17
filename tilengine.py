@@ -305,6 +305,11 @@ _tln.TLN_SetLoadPath.argtypes = [c_char_p]
 class Engine(object):
 	"""
 	Main object for engine creation and rendering
+
+	:ivar layers: tuple of Layer objects, one entry per layer
+	:ivar sprites: tuple of Sprite objects, one entry per sprite
+	:ivar animations: tuple of Animation objects, one entry per animation
+	:ivar version: library version number
 	"""
 
 	def __init__(self, num_layers, num_sprites, num_animations):
@@ -312,9 +317,6 @@ class Engine(object):
 		self.sprites = [Sprite(n) for n in range(num_sprites)]
 		self.animations = [Animation(n) for n in range(num_animations)]
 		self.version = _tln.TLN_GetVersion()
-		self.num_layers = num_layers
-		self.num_sprites = num_sprites
-		self.num_animations = num_animations
 		self.cb_raster_func = None
 		self.cb_blend_func = None
 
@@ -457,6 +459,7 @@ class Engine(object):
 		# do 50%/50% blending example
 		def blend_function(src, dst):
 			return (src + dst) / 2
+		````
 		"""
 		self.cb_blend_func = _blend_function(blend_function)
 		_tln.TLN_SetCustomBlendFunction(self.cb_blend_func)
@@ -497,6 +500,8 @@ _tln.TLN_BeginWindowFrame.argtypes = [c_int]
 class Window(object):
 	"""
 	Built-in window manager for easy setup and testing
+
+	:ivar num_frame: current frame being drawn, starting from 0
 	"""
 
 	@classmethod
@@ -641,6 +646,8 @@ _tln.TLN_DeleteSpriteset.restype = c_bool
 class Spriteset(object):
 	"""
 	The Spriteset object holds the graphic data used to render moving objects (sprites)
+
+	:ivar palette: original palette attached inside the resource file
 	"""
 
 	def __init__(self, handle):
@@ -730,6 +737,11 @@ _tln.TLN_DeleteTileset.restype = c_bool
 class Tileset(object):
 	"""
 	The Tileset object holds the graphic tiles used to render background layers from a Tilemap
+
+	:ivar tile_width: width of each tile
+	:ivar tile_height: height of each tile
+	:ivar palette: original palette attached inside the resource file
+	:ivar sequence_pack: optional SequencePack embedded inside the Tileset for tileset animation
 	"""
 	def __init__(self, handle):
 		self._as_parameter_ = handle
@@ -833,6 +845,10 @@ _tln.TLN_DeleteTilemap.restype = c_bool
 class Tilemap(object):
 	"""
 	The Tilemap object holds the grid of tiles that define the background layout
+
+	:ivar rows: number of rows (vertical cells)
+	:ivar cols: number of columns (horizontal cells)
+	:ivar tileset: Tileset object attached inside the resource file
 	"""
 	def __init__(self, handle):
 		self._as_parameter_ = handle
@@ -1081,6 +1097,12 @@ _tln.TLN_DeleteBitmap.restype = c_bool
 class Bitmap(object):
 	"""
 	The Bitmap object holds graphic data used to build in backgrounds, Tileset and Spriteset objects
+
+	:ivar width: number of horizontal pixels
+	:ivar height: number of vertical pixels
+	:ivar depth: number of bits per pixel
+	:ivar pitch: number of bytes per each scanline
+	:ivar palette: Palette object attached inside the bitmap
 	"""
 	def __init__(self, handle):
 		self._as_parameter_ = handle
@@ -1231,6 +1253,8 @@ _tln.TLN_DeleteSequencePack.restype = c_bool
 class SequencePack(object):
 	"""
 	The SequencePack object holds a collection of Sequence objects
+
+	:ivar count: number of sequences inside the pack
 	"""
 	def __init__(self, handle):
 		self._as_parameter_ = handle
@@ -1331,6 +1355,11 @@ _tln.TLN_GetLayerHeight.restype = c_int
 class Layer(object):
 	"""
 	The Layer object manages each tiled background plane
+
+	:ivar index: layer index, from 0 to num_layers - 1
+	:ivar width: width in pixels of the assigned tilemap
+	:ivar height: height in pixels of the assigned tilemap
+	:ivar tilemap: assigned Tilemap object
 	"""
 	def __init__(self, index):
 		self.index = index
@@ -1521,6 +1550,9 @@ _tln.TLN_GetSpritePalette.restype = c_void_p
 class Sprite(object):
 	"""
 	The Sprite object manages each moving character onscreen
+
+	:ivar index: sprite index, from 0 to num_sprites - 1
+	:ivar spriteset: assigned Spriteset object
 	"""
 	def __init__(self, index):
 		self.index = index
@@ -1678,6 +1710,8 @@ _tln.TLN_DisableAnimation.restype = c_bool
 class Animation(object):
 	"""
 	The Animation object manages each animation for the sequencer engine
+
+	:ivar index: animation index, from 0 to num_animations - 1
 	"""
 	def __init__(self, index):
 		self.index = index
