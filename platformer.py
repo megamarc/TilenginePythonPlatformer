@@ -9,8 +9,8 @@ from tilengine import *
 # constants
 WIDTH = 640
 HEIGHT = 360
-sky_color1 = Color(120, 215, 242)
-sky_color2 = Color(226, 236, 242)
+sky_color1 = Color.fromstring("#78D7F2")
+sky_color2 = Color.fromstring("#E2ECF2")
 
 def load_objects(file_name, layer_name, first_gid):
 	""" loads tiles in object layer from a tmx file.
@@ -118,21 +118,21 @@ class Player(Actor):
 	def set_idle(self):
 		""" sets idle state, idempotent """
 		if self.state is not State.Idle:
-			self.animation.set_sprite_animation(self.sprite.index, sequence_idle, 0)
+			self.animation.set_sprite_animation(self.sprite.index, seq_pack.sequences["seq_idle"], 0)
 			self.state = State.Idle
 			self.xspeed = 0
 
 	def set_running(self):
 		""" sets running state, idempotent """
 		if self.state is not State.Run:
-			self.animation.set_sprite_animation(self.sprite.index, sequence_run, 0)
+			self.animation.set_sprite_animation(self.sprite.index, seq_pack.sequences["seq_run"], 0)
 			self.state = State.Run
 
 	def set_jump(self):
 		""" sets jump state, idempotent """
 		if self.state is not State.Jump:
 			self.yspeed = -Player.yspeed_limit
-			self.animation.set_sprite_animation(self.sprite.index, sequence_jump, 0)
+			self.animation.set_sprite_animation(self.sprite.index, seq_pack.sequences["seq_jump"], 0)
 			self.state = State.Jump
 			self.medium = Medium.Air
 
@@ -287,7 +287,7 @@ class Player(Actor):
 				if abs(px - ex) < 25 and 5 < py - ey < 20:
 					actor.kill()
 					self.set_bounce()
-					Effect(actor.x, actor.y - 10, spriteset_death, sequence_death)
+					Effect(actor.x, actor.y - 10, spriteset_death, seq_pack.sequences["seq_death"])
 		return
 
 	def update(self):
@@ -343,7 +343,7 @@ class Eagle(Actor):
 		Actor.__init__(self, item_ref, x, y)
 		self.frame = 0
 		self.base_y = y
-		self.animation.set_sprite_animation(self.sprite.index, sequence_eagle, 0)
+		self.animation.set_sprite_animation(self.sprite.index, seq_pack.sequences["seq_eagle"], 0)
 
 	def update(self):
 		""" Update once per frame """
@@ -368,7 +368,7 @@ class Opossum(Actor):
 		Actor.__init__(self, item_ref, x, y)
 		self.xspeed = -2
 		self.direction = Direction.Left
-		self.animation.set_sprite_animation(self.sprite.index, sequence_opossum, 0)
+		self.animation.set_sprite_animation(self.sprite.index, seq_pack.sequences["seq_opossum"], 0)
 
 	def update(self):
 		""" Update once per frame """
@@ -422,7 +422,7 @@ class World(object):
 		for tile_info in tiles_list:
 			if tile_info.type is Tiles.Gem:
 				self.foreground.tilemap.set_tile(tile_info.row, tile_info.col, tile)
-				Effect(tile_info.col*16, tile_info.row*16, spriteset_vanish, sequence_vanish)
+				Effect(tile_info.col*16, tile_info.row*16, spriteset_vanish, seq_pack.sequences["seq_vanish"])
 				break
 		del tile
 
@@ -487,14 +487,7 @@ spriteset_vanish = Spriteset.fromfile("effect_vanish")
 spriteset_death = Spriteset.fromfile("effect_death")
 
 # load sequences
-sequences = SequencePack.fromfile("sequences.sqx")
-sequence_idle = sequences.find_sequence("seq_idle")
-sequence_jump = sequences.find_sequence("seq_jump")
-sequence_run = sequences.find_sequence("seq_run")
-sequence_vanish = sequences.find_sequence("seq_vanish")
-sequence_death = sequences.find_sequence("seq_death")
-sequence_eagle = sequences.find_sequence("seq_eagle")
-sequence_opossum = sequences.find_sequence("seq_opossum")
+seq_pack = SequencePack.fromfile("sequences.sqx")
 tiles_info = [TileInfo(), TileInfo(), TileInfo(), TileInfo()]
 
 # set raster callback
@@ -512,5 +505,3 @@ while window.process():
 	for actor in actors:
 		if not actor.update():
 			actors.remove(actor)
-
-engine.delete()
