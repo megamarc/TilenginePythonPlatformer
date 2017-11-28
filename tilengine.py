@@ -1,6 +1,6 @@
 """
 Python wrapper for Tilengine retro graphics engine
-Updated to library version 1.17.0
+Updated to library version 1.18.0
 http://www.tilengine.org
 """
 

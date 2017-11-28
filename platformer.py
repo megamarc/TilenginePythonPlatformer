@@ -498,7 +498,7 @@ world = World()		# world/level entity
 player = Player()   # player entity
 
 # window creation & main loop
-window = Window.create(None, WindowFlags.S1)
+window = Window.create()
 while window.process():
 
 	# update active entities list
