@@ -5,6 +5,8 @@
 import xml.etree.ElementTree as ET
 from math import sin, radians
 from tilengine import *
+from sdl2 import *
+from sdl2.sdlmixer import *
 
 # constants
 WIDTH = 640
@@ -32,21 +34,38 @@ def load_objects(file_name, layer_name, first_gid):
 
 # Game management definitions *************************************************
 
-class State(object):
+class State:
 	""" player states """
-	Undefined, Idle, Run, Jump = range(4)
+	Undefined, Idle, Run, Jump, Hit = range(5)
 
-class Direction(object):
+class Direction:
 	""" player orientations """
 	Right, Left = range(2)
 
-class Tiles(object):
+class Tiles:
 	""" types of tiles for sprite-terrain collision detection """
 	Empty, Floor, Gem, Wall, SlopeUp, SlopeDown, InnerSlopeUp, InnerSlopeDown = range(8)
 
-class Medium(object):
+class Medium:
 	""" types of environments """
 	Floor, Air, Ladder, Water = range(4)
+
+class Rectangle(object):
+	""" aux rectangle """
+	def __init__(self, x, y, w, h):
+		self.width = w
+		self.height = h
+		self.update_position(x, y)
+
+	def update_position(self, x, y):
+		self.x1 = x
+		self.y1 = y
+		self.x2 = x + self.width
+		self.y2 = y + self.height
+
+	def check_point(self, x, y):
+		""" returns if point is contained in rectangle """
+		return self.x1 <= x <= self.x2 and self.y1 <= y <= self.y2
 
 class Item(object):
 	""" Generic item declared in tilemap object layer awaiting to spawn """
@@ -96,7 +115,7 @@ class Player(Actor):
 	xspeed_delta = 12
 	xspeed_limit = 200
 	yspeed_delta = 10
-	yspeed_limit = 280
+	yspeed_limit = 350
 	jspeed_delta = 5
 
 	def __init__(self):
@@ -114,6 +133,9 @@ class Player(Actor):
 		self.height = self.size[1]
 		self.medium = Medium.Floor
 		self.jump = False
+		self.immunity = 0
+		self.rectangle = Rectangle(0, 0, self.width, self.height)
+		self.palettes = [self.spriteset.palette, Palette.fromfile("hero_alt.act")]
 
 	def set_idle(self):
 		""" sets idle state, idempotent """
@@ -131,16 +153,34 @@ class Player(Actor):
 	def set_jump(self):
 		""" sets jump state, idempotent """
 		if self.state is not State.Jump:
-			self.yspeed = -Player.yspeed_limit
+			self.yspeed = -280
 			self.animation.set_sprite_animation(self.sprite.index, seq_pack.sequences["seq_jump"], 0)
 			self.state = State.Jump
 			self.medium = Medium.Air
+			Mix_PlayChannel(0, snd_jump, 0)
 
 	def set_bounce(self):
 		""" bounces on top of an enemy """
 		self.yspeed = -150
 		self.state = State.Jump
 		self.medium = Medium.Air
+
+	def set_hit(self, enemy_direction):
+		""" sets hit animation by an enemy """
+		self.direction = enemy_direction
+		if self.direction is Direction.Left:
+			self.xspeed = -self.xspeed_limit
+			self.sprite.set_flags(0)
+		else:
+			self.xspeed = self.xspeed_limit
+			self.sprite.set_flags(Flags.FLIPX)
+		self.yspeed = -150
+		self.state = State.Hit
+		self.medium = Medium.Air
+		self.animation.disable()
+		self.sprite.set_picture(12)
+		self.immunity = 90
+		Mix_PlayChannel(0, snd_hurt, 0)
 
 	def update_direction(self):
 		""" updates sprite facing depending on direction """
@@ -186,8 +226,6 @@ class Player(Actor):
 			self.xspeed += self.jspeed_delta
 		elif window.get_input(Input.LEFT) and self.xspeed > -Player.xspeed_limit:
 			self.xspeed -= self.jspeed_delta
-		if self.yspeed < Player.yspeed_limit:
-			self.yspeed += Player.yspeed_delta
 
 	def check_left(self, x, y):
 		""" checks/adjusts environment collision when player is moving to the left """
@@ -272,9 +310,7 @@ class Player(Actor):
 				else:
 					self.set_running()
 		else:
-			self.yspeed += Player.yspeed_delta
-			if self.medium is Medium.Floor:
-				self.medium = Medium.Air
+			self.medium = Medium.Air
 		world.pick_gem(tiles_info)
 
 	def check_jump_on_enemies(self, x, y):
@@ -288,12 +324,28 @@ class Player(Actor):
 					actor.kill()
 					self.set_bounce()
 					Effect(actor.x, actor.y - 10, spriteset_death, seq_pack.sequences["seq_death"])
+					Mix_PlayChannel(2, snd_crush, 0)
 		return
+
+	def check_hit(self, x, y, direction):
+		""" returns if get hurt by enemy at select position and direction"""
+		if self.immunity is 0 and self.rectangle.check_point(x, y):
+			self.set_hit(direction)
 
 	def update(self):
 		""" process input and updates state once per frame """
 		oldx = self.x
 		oldy = self.y
+
+		# update immunity
+		if self.immunity is not 0:
+			pal_index0 = (self.immunity >> 2) & 1
+			self.immunity -= 1
+			pal_index1 = (self.immunity >> 2) & 1
+			if self.immunity is 0:
+				pal_index1 = 0
+			if pal_index0 != pal_index1:
+				self.sprite.set_palette(self.palettes[pal_index1])
 
 		# update sprite facing
 		self.update_direction()
@@ -302,7 +354,10 @@ class Player(Actor):
 		if self.medium is Medium.Floor:
 			self.update_floor()
 		elif self.medium is Medium.Air:
-			self.update_air()
+			if self.state is not State.Hit:
+				self.update_air()
+			if self.yspeed < Player.yspeed_limit:
+				self.yspeed += Player.yspeed_delta
 
 		self.x += (self.xspeed / 100.0)
 		self.y += (self.yspeed / 100.0)
@@ -327,7 +382,8 @@ class Player(Actor):
 		if self.yspeed > 0:
 			self.check_jump_on_enemies(intx, inty)
 
-		if self.x is not oldx or self.y is not oldy:
+		if self.x != oldx or self.y != oldy:
+			self.rectangle.update_position(int(self.x), int(self.y))
 			self.sprite.set_position(int(self.x) - world.x, int(self.y))
 		return True
 
@@ -343,18 +399,39 @@ class Eagle(Actor):
 		Actor.__init__(self, item_ref, x, y)
 		self.frame = 0
 		self.base_y = y
+		self.xspeed = -3
+		self.direction = Direction.Left
 		self.animation.set_sprite_animation(self.sprite.index, seq_pack.sequences["seq_eagle"], 0)
+		self.collision_points = [4, 20, 36]
 
 	def update(self):
 		""" Update once per frame """
-		self.x -= 3
+		self.x += self.xspeed
 		self.y = self.base_y + int(sin(radians(self.frame*4))*15)
 		self.frame += 1
-		self.sprite.set_position(self.x - world.x, self.y)
-		if self.x + 40 < world.x:
-			world.objects.remove(self.item)
-			self.item = None
-			return False
+		if self.frame is 10:
+			Mix_PlayChannel(3, snd_eagle, 0)
+		screen_x = self.x - world.x
+
+		if self.direction is Direction.Left:
+			if screen_x < 10:
+				self.direction = Direction.Right
+				self.xspeed = -self.xspeed
+				self.sprite.set_flags(Flags.FLIPX)
+				Mix_PlayChannel(3, snd_eagle, 0)
+			else:
+				for point in self.collision_points:
+					player.check_hit(self.x, self.y + point, self.direction)
+		else:
+			if screen_x > 590:
+				self.direction = Direction.Left
+				self.xspeed = -self.xspeed
+				self.sprite.set_flags(0)
+				Mix_PlayChannel(3, snd_eagle, 0)
+			else:
+				for point in self.collision_points:
+					player.check_hit(self.x + self.size[0], self.y + point, self.direction)
+		self.sprite.set_position(screen_x, self.y)
 		return True
 
 class Opossum(Actor):
@@ -373,18 +450,22 @@ class Opossum(Actor):
 	def update(self):
 		""" Update once per frame """
 		self.x += self.xspeed
-		if self.x - player.x < -80 and self.direction is Direction.Left:
-			self.direction = Direction.Right
-			self.xspeed = -self.xspeed
-			self.sprite.set_flags(Flags.FLIPX)
-		elif self.x - player.x > 80 and self.direction is Direction.Right:
-			self.direction = Direction.Left
-			self.xspeed = -self.xspeed
-			self.sprite.set_flags(0)
+		if self.direction is Direction.Left:
+			if self.x - player.x < -80:
+				self.direction = Direction.Right
+				self.xspeed = -self.xspeed
+				self.sprite.set_flags(Flags.FLIPX)
+			else:
+				player.check_hit(self.x, self.y + self.size[1]//2, self.direction)
+		else:
+			if self.x - player.x > 80 and self.direction is Direction.Right:
+				self.direction = Direction.Left
+				self.xspeed = -self.xspeed
+				self.sprite.set_flags(0)
+			else:
+				player.check_hit(self.x + self.size[0], self.y + self.size[1]//2, self.direction)
 
 		self.sprite.set_position(self.x - world.x, self.y)
-		if self.x + 40 < world.x or self.x > world.x + WIDTH:
-			return False
 		return True
 
 class Effect(Actor):
@@ -423,6 +504,7 @@ class World(object):
 			if tile_info.type is Tiles.Gem:
 				self.foreground.tilemap.set_tile(tile_info.row, tile_info.col, tile)
 				Effect(tile_info.col*16, tile_info.row*16, spriteset_vanish, seq_pack.sequences["seq_vanish"])
+				Mix_PlayChannel(1, snd_pickup, 0)
 				break
 		del tile
 
@@ -480,7 +562,7 @@ def raster_effect(line):
 		world.background.set_position(world.x//2, 0)
 
 # init engine
-engine = Engine.create(WIDTH, HEIGHT, 2, 16, 16)
+engine = Engine.create(WIDTH, HEIGHT, 2, 32, 32)
 
 # load spritesets for animation effects
 spriteset_vanish = Spriteset.fromfile("effect_vanish")
@@ -497,6 +579,17 @@ actors = list()		# list that contains every active game entity
 world = World()		# world/level entity
 player = Player()   # player entity
 
+# SDL_Mixer
+SDL_Init(SDL_INIT_AUDIO)
+Mix_Init(0)
+Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, MIX_DEFAULT_FORMAT, 2, 2048)
+Mix_AllocateChannels(4)
+snd_jump = Mix_LoadWAV("jump.wav".encode())
+snd_crush = Mix_LoadWAV("crunch.wav".encode())
+snd_pickup = Mix_LoadWAV("pickup.wav".encode())
+snd_hurt = Mix_LoadWAV("hurt.wav".encode())
+snd_eagle = Mix_LoadWAV("vulture.wav".encode())
+
 # window creation & main loop
 window = Window.create()
 while window.process():
@@ -505,3 +598,6 @@ while window.process():
 	for actor in actors:
 		if not actor.update():
 			actors.remove(actor)
+
+Mix_CloseAudio()
+SDL_Quit()

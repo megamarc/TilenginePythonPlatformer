@@ -1,6 +1,7 @@
 # Tilengine python platformer
 This project aims to teach actual game mechanics using the free, cross-platform [Tilengine retro graphics engine](http://www.tilengine.org) under python.
 ![screenshot](screenshot.png)
+
 ## Features
 The features implemented so far are:
 * Two layer parallax scrolling
@@ -15,7 +16,46 @@ The features implemented so far are:
 * Active game entities management
 * Define game entities (enemies, etc) inside tmx object layer and load into a list
 * Enemy behavior and spawn active enemies from loaded entities list
+* Enemies can hurt player and make it bounce
+* Basic sound effects with SDL_Mixer library
+
+## Prerequisites
+This project depends on three external components:
+
+### Tilengine
+http://www.tilengine.org
+
+Python binding and Windows 64-bit dll are already included. If you're using another platform, please install it from github and follow its instructions.
+
+### SDL2 and SDL2_Mixer
+https://www.libsdl.org/
+
+SDL2 (Simple DirectMedia Layer) is an open-source, cross-platform library for managing windows, user input, graphics and sound. Both tilengine and this project use SDL2 internally. You must install the runtime binaries into your system.
+
+**Windows and OSX:**
+
+Download prebuilt binaries here:
+
+https://www.libsdl.org/download-2.0.php
+
+https://www.libsdl.org/projects/SDL_mixer/
+
+**Debian-based linux:**
+
+Open a terminal window and install directly from package manager:
+```
+sudo apt install libsdl2-dev libsdl2-mixer-dev
+```
+
+### SDL2 python binding
+http://pysdl2.readthedocs.io
+
+You must also install the binding for using SDL2 from python language. From a terminal window type the following command:
+```
+pip install pysdl2
+```
+
 ## Acknowledge
 Graphic assets are copyrighted and owned by their original authors
-* Backgrounds created by ansimuth: https://ansimuz.itch.io/magic-cliffs-environment
+* Backgrounds created by ansimuz: https://ansimuz.itch.io/magic-cliffs-environment
 * Player character created by Jesse M: https://jesse-m.itch.io/jungle-pack
