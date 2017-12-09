@@ -1,11 +1,11 @@
 language: python
 python:
-    - 2.7
-    - 3.6
+  - 2.7
+  - 3.6
 install:
-    - cp lib/libTilengine.so /usr/lib/x86_64-linux-gnu
-    - chmod a+x /usr/lib/x86_64-linux-gnu/libTilengine.so
-    - sudo apt install libsdl2-dev libsdl2-mixer-dev
-    - pip install pysdl2
-  script:
-    - python platformer.py
+  - cp lib/libTilengine.so /usr/lib/x86_64-linux-gnu
+  - chmod a+x /usr/lib/x86_64-linux-gnu/libTilengine.so
+  - sudo apt install libsdl2-dev libsdl2-mixer-dev
+  - pip install pysdl2
+script:
+  - python platformer.py
