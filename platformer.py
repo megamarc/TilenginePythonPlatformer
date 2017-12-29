@@ -5,14 +5,13 @@
 import xml.etree.ElementTree as ET
 from math import sin, radians
 from tilengine import *
-from sdl2 import *
-from sdl2.sdlmixer import *
+from sound import Sound
 
 # constants
 WIDTH = 640
 HEIGHT = 360
-sky_color1 = Color.fromstring("#78D7F2")
-sky_color2 = Color.fromstring("#E2ECF2")
+ASSETS_PATH = "assets"
+SKY_COLORS = (Color.fromstring("#78D7F2"), Color.fromstring("#E2ECF2"))
 
 def load_objects(file_name, layer_name, first_gid):
 	""" loads tiles in object layer from a tmx file.
@@ -111,7 +110,7 @@ class Actor(object):
 
 class Player(Actor):
 	""" main player entity """
-	size = [24, 36]
+	size = (24, 36)
 	xspeed_delta = 12
 	xspeed_limit = 200
 	yspeed_delta = 10
@@ -135,7 +134,7 @@ class Player(Actor):
 		self.jump = False
 		self.immunity = 0
 		self.rectangle = Rectangle(0, 0, self.width, self.height)
-		self.palettes = [self.spriteset.palette, Palette.fromfile("hero_alt.act")]
+		self.palettes = (self.spriteset.palette, Palette.fromfile("hero_alt.act"))
 
 	def set_idle(self):
 		""" sets idle state, idempotent """
@@ -157,7 +156,7 @@ class Player(Actor):
 			self.animation.set_sprite_animation(self.sprite.index, seq_pack.sequences["seq_jump"], 0)
 			self.state = State.Jump
 			self.medium = Medium.Air
-			Mix_PlayChannel(0, snd_jump, 0)
+			sounds.play("jump", 0)
 
 	def set_bounce(self):
 		""" bounces on top of an enemy """
@@ -180,7 +179,7 @@ class Player(Actor):
 		self.animation.disable()
 		self.sprite.set_picture(12)
 		self.immunity = 90
-		Mix_PlayChannel(0, snd_hurt, 0)
+		sounds.play("hurt", 0)
 
 	def update_direction(self):
 		""" updates sprite facing depending on direction """
@@ -296,7 +295,7 @@ class Player(Actor):
 			ground = True
 
 		# check regular floor
-		elif Tiles.Floor in [tiles_info[0].type, tiles_info[1].type, tiles_info[2].type]:
+		elif Tiles.Floor in (tiles_info[0].type, tiles_info[1].type, tiles_info[2].type):
 			self.y = (tiles_info[0].row * 16) - self.height
 			ground = True
 
@@ -318,13 +317,13 @@ class Player(Actor):
 		px, py = x+self.width/2, y+self.height
 		for actor in actors:
 			actor_type = type(actor)
-			if actor_type in [Eagle, Opossum]:
+			if actor_type in (Eagle, Opossum):
 				ex, ey = actor.x + actor.size[0]/2, actor.y
 				if abs(px - ex) < 25 and 5 < py - ey < 20:
 					actor.kill()
 					self.set_bounce()
 					Effect(actor.x, actor.y - 10, spriteset_death, seq_pack.sequences["seq_death"])
-					Mix_PlayChannel(2, snd_crush, 0)
+					sounds.play("crush", 2)
 		return
 
 	def check_hit(self, x, y, direction):
@@ -390,7 +389,7 @@ class Player(Actor):
 
 class Eagle(Actor):
 	""" Flying enemy """
-	size = [40, 40]
+	size = (40, 40)
 
 	def __init__(self, item_ref, x, y):
 		if type(self).spriteset is None:
@@ -402,7 +401,7 @@ class Eagle(Actor):
 		self.xspeed = -3
 		self.direction = Direction.Left
 		self.animation.set_sprite_animation(self.sprite.index, seq_pack.sequences["seq_eagle"], 0)
-		self.collision_points = [4, 20, 36]
+		self.collision_points = (4, 20, 36)
 
 	def update(self):
 		""" Update once per frame """
@@ -410,7 +409,7 @@ class Eagle(Actor):
 		self.y = self.base_y + int(sin(radians(self.frame*4))*15)
 		self.frame += 1
 		if self.frame is 10:
-			Mix_PlayChannel(3, snd_eagle, 0)
+			sounds.play("eagle", 3)
 		screen_x = self.x - world.x
 
 		if self.direction is Direction.Left:
@@ -418,7 +417,7 @@ class Eagle(Actor):
 				self.direction = Direction.Right
 				self.xspeed = -self.xspeed
 				self.sprite.set_flags(Flags.FLIPX)
-				Mix_PlayChannel(3, snd_eagle, 0)
+				sounds.play("eagle", 3)
 			else:
 				for point in self.collision_points:
 					player.check_hit(self.x, self.y + point, self.direction)
@@ -427,7 +426,7 @@ class Eagle(Actor):
 				self.direction = Direction.Left
 				self.xspeed = -self.xspeed
 				self.sprite.set_flags(0)
-				Mix_PlayChannel(3, snd_eagle, 0)
+				sounds.play("eagle", 3)
 			else:
 				for point in self.collision_points:
 					player.check_hit(self.x + self.size[0], self.y + point, self.direction)
@@ -436,7 +435,7 @@ class Eagle(Actor):
 
 class Opossum(Actor):
 	""" Floor enemy. Chases player in a 80 pixel radius """
-	size = [36, 24]
+	size = (36, 24)
 
 	def __init__(self, item_ref, x, y):
 		if type(self).spriteset is None:
@@ -492,7 +491,7 @@ class World(object):
 		self.background.setup(Tilemap.fromfile("layer_background.tmx"))
 		self.x = 0
 		self.x_max = self.foreground.width - WIDTH
-		self.objects = load_objects("layer_foreground.tmx", "Capa de Objetos 1", 973)
+		self.objects = load_objects("assets/layer_foreground.tmx", "Capa de Objetos 1", 973)
 		engine.set_background_color(self.background.tilemap)
 		actors.append(self)
 
@@ -504,7 +503,7 @@ class World(object):
 			if tile_info.type is Tiles.Gem:
 				self.foreground.tilemap.set_tile(tile_info.row, tile_info.col, tile)
 				Effect(tile_info.col*16, tile_info.row*16, spriteset_vanish, seq_pack.sequences["seq_vanish"])
-				Mix_PlayChannel(1, snd_pickup, 0)
+				sounds.play("pickup", 1)
 				break
 		del tile
 
@@ -546,7 +545,7 @@ def interpolate_color(x, x1, x2, color1, color2):
 def raster_effect(line):
 	""" raster effect callback, called every rendered scanline """
 	if 0 <= line <= 128:
-		color = interpolate_color(line, 0, 128, sky_color1, sky_color2)
+		color = interpolate_color(line, 0, 128, SKY_COLORS[0], SKY_COLORS[1])
 		engine.set_background_color(color)
 
 	if line == 0:
@@ -563,6 +562,7 @@ def raster_effect(line):
 
 # init engine
 engine = Engine.create(WIDTH, HEIGHT, 2, 32, 32)
+engine.set_load_path("assets")
 
 # load spritesets for animation effects
 spriteset_vanish = Spriteset.fromfile("effect_vanish")
@@ -570,7 +570,7 @@ spriteset_death = Spriteset.fromfile("effect_death")
 
 # load sequences
 seq_pack = SequencePack.fromfile("sequences.sqx")
-tiles_info = [TileInfo(), TileInfo(), TileInfo(), TileInfo()]
+tiles_info = (TileInfo(), TileInfo(), TileInfo(), TileInfo())
 
 # set raster callback
 engine.set_raster_callback(raster_effect)
@@ -579,16 +579,13 @@ actors = list()		# list that contains every active game entity
 world = World()		# world/level entity
 player = Player()   # player entity
 
-# SDL_Mixer
-SDL_Init(SDL_INIT_AUDIO)
-Mix_Init(0)
-Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, MIX_DEFAULT_FORMAT, 2, 2048)
-Mix_AllocateChannels(4)
-snd_jump = Mix_LoadWAV("jump.wav".encode())
-snd_crush = Mix_LoadWAV("crunch.wav".encode())
-snd_pickup = Mix_LoadWAV("pickup.wav".encode())
-snd_hurt = Mix_LoadWAV("hurt.wav".encode())
-snd_eagle = Mix_LoadWAV("vulture.wav".encode())
+# Sound effects
+sounds = Sound(4, "assets")
+sounds.load("jump", "jump.wav")
+sounds.load("crush", "crunch.wav")
+sounds.load("pickup", "pickup.wav")
+sounds.load("hurt", "hurt.wav")
+sounds.load("eagle", "vulture.wav")
 
 # window creation & main loop
 window = Window.create()
@@ -598,6 +595,3 @@ while window.process():
 	for actor in actors:
 		if not actor.update():
 			actors.remove(actor)
-
-Mix_CloseAudio()
-SDL_Quit()
