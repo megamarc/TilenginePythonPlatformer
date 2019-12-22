@@ -1,5 +1,6 @@
 # Tilengine python platformer
 This project aims to teach actual game mechanics using the free, cross-platform [Tilengine retro graphics engine](http://www.tilengine.org) under python.
+
 ![screenshot](screenshot.png)
 
 ## Features
@@ -20,12 +21,12 @@ The features implemented so far are:
 * Basic sound effects with SDL_Mixer library
 
 ## Prerequisites
-This project depends on three external components:
+This project depends on three external components that must be installed separately:
 
 ### Tilengine
 http://www.tilengine.org
 
-Python binding and Windows 64-bit dll are already included. If you're using another platform, please install it from github and follow its instructions.
+Each supported platform has its own methods for build or install binaries, please follow method of your own platform.
 
 ### SDL2 and SDL2_Mixer
 https://www.libsdl.org/
@@ -44,7 +45,7 @@ https://www.libsdl.org/projects/SDL_mixer/
 
 Open a terminal window and install directly from package manager:
 ```
-sudo apt install libsdl2-dev libsdl2-mixer-dev
+sudo apt install libsdl2-2.0-0 libsdl2-mixer-2.0-0
 ```
 
 ### SDL2 python binding
