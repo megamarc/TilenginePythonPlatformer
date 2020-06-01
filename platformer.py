@@ -13,6 +13,20 @@ HEIGHT = 360
 ASSETS_PATH = "assets"
 SKY_COLORS = (Color.fromstring("#78D7F2"), Color.fromstring("#E2ECF2"))
 
+# init engine
+engine = Engine.create(WIDTH, HEIGHT, 2, 32, 32)
+engine.set_load_path("assets")
+
+# load spritesets for animation effects
+spriteset_vanish = Spriteset.fromfile("effect_vanish")
+spriteset_death = Spriteset.fromfile("effect_death")
+
+# create sequences
+seq_vanish = Sequence.create_sprite_sequence(spriteset_vanish, "vanish", 4)
+seq_death = Sequence.create_sprite_sequence(spriteset_death, "death-", 5)
+
+tiles_info = (TileInfo(), TileInfo(), TileInfo(), TileInfo())
+
 def load_objects(file_name, layer_name, first_gid):
 	""" loads tiles in object layer from a tmx file.
 	Returns list of Item objects """
@@ -116,11 +130,12 @@ class Player(Actor):
 	yspeed_delta = 10
 	yspeed_limit = 350
 	jspeed_delta = 5
+	spriteset = Spriteset.fromfile("hero")
+	seq_idle = Sequence.create_sprite_sequence(spriteset, "idle", 4)
+	seq_jump = Sequence.create_sprite_sequence(spriteset, "jump", 24)
+	seq_run = Sequence.create_sprite_sequence(spriteset, "run", 5)
 
 	def __init__(self):
-		if type(self).spriteset is None:
-			type(self).spriteset = Spriteset.fromfile("hero")
-
 		Actor.__init__(self, None, 60, 188)
 		self.state = State.Undefined
 		self.direction = Direction.Right
@@ -139,21 +154,21 @@ class Player(Actor):
 	def set_idle(self):
 		""" sets idle state, idempotent """
 		if self.state is not State.Idle:
-			self.animation.set_sprite_animation(self.sprite.index, seq_pack.sequences["seq_idle"], 0)
+			self.sprite.set_animation(type(self).seq_idle, 0)
 			self.state = State.Idle
 			self.xspeed = 0
 
 	def set_running(self):
 		""" sets running state, idempotent """
 		if self.state is not State.Run:
-			self.animation.set_sprite_animation(self.sprite.index, seq_pack.sequences["seq_run"], 0)
+			self.sprite.set_animation(type(self).seq_run, 0)
 			self.state = State.Run
 
 	def set_jump(self):
 		""" sets jump state, idempotent """
 		if self.state is not State.Jump:
 			self.yspeed = -280
-			self.animation.set_sprite_animation(self.sprite.index, seq_pack.sequences["seq_jump"], 0)
+			self.sprite.set_animation(type(self).seq_jump, 0)
 			self.state = State.Jump
 			self.medium = Medium.Air
 			sounds.play("jump", 0)
@@ -322,7 +337,7 @@ class Player(Actor):
 				if abs(px - ex) < 25 and 5 < py - ey < 20:
 					actor.kill()
 					self.set_bounce()
-					Effect(actor.x, actor.y - 10, spriteset_death, seq_pack.sequences["seq_death"])
+					Effect(actor.x, actor.y - 10, spriteset_death, seq_death)
 					sounds.play("crush", 2)
 		return
 
@@ -390,17 +405,16 @@ class Player(Actor):
 class Eagle(Actor):
 	""" Flying enemy """
 	size = (40, 40)
+	spriteset = Spriteset.fromfile("enemy_eagle")
+	seq_fly = Sequence.create_sprite_sequence(spriteset, "fly", 6)
 
 	def __init__(self, item_ref, x, y):
-		if type(self).spriteset is None:
-			type(self).spriteset = Spriteset.fromfile("enemy_eagle")
-
 		Actor.__init__(self, item_ref, x, y)
 		self.frame = 0
 		self.base_y = y
 		self.xspeed = -3
 		self.direction = Direction.Left
-		self.animation.set_sprite_animation(self.sprite.index, seq_pack.sequences["seq_eagle"], 0)
+		self.sprite.set_animation(type(self).seq_fly, 0)
 		self.collision_points = (4, 20, 36)
 
 	def update(self):
@@ -436,15 +450,14 @@ class Eagle(Actor):
 class Opossum(Actor):
 	""" Floor enemy. Chases player in a 80 pixel radius """
 	size = (36, 24)
+	spriteset = Spriteset.fromfile("enemy_opossum")
+	seq_walk = Sequence.create_sprite_sequence(spriteset, "opossum-", 6)
 
 	def __init__(self, item_ref, x, y):
-		if type(self).spriteset is None:
-			type(self).spriteset = Spriteset.fromfile("enemy_opossum")
-
 		Actor.__init__(self, item_ref, x, y)
 		self.xspeed = -2
 		self.direction = Direction.Left
-		self.animation.set_sprite_animation(self.sprite.index, seq_pack.sequences["seq_opossum"], 0)
+		self.sprite.set_animation(type(self).seq_walk, 0)
 
 	def update(self):
 		""" Update once per frame """
@@ -472,12 +485,12 @@ class Effect(Actor):
 	def __init__(self, x, y, spriteset, sequence):
 		self.spriteset = spriteset
 		Actor.__init__(self, None, x, y)
-		self.animation.set_sprite_animation(self.sprite.index, sequence, 1)
+		self.sprite.set_animation(sequence, 1)
 
 	def update(self):
 		""" updates effect state once per frame """
 		self.sprite.set_position(self.x - world.x, self.y)
-		if self.animation.get_state() is False:
+		if self.sprite.get_animation_state() is False:
 			return False
 		return True
 
@@ -497,15 +510,12 @@ class World(object):
 
 	def pick_gem(self, tiles_list):
 		""" updates tilemap when player picks a gem """
-		tile = Tile()
-		tile.index = 0
 		for tile_info in tiles_list:
 			if tile_info.type is Tiles.Gem:
-				self.foreground.tilemap.set_tile(tile_info.row, tile_info.col, tile)
-				Effect(tile_info.col*16, tile_info.row*16, spriteset_vanish, seq_pack.sequences["seq_vanish"])
+				self.foreground.tilemap.set_tile(tile_info.row, tile_info.col, None)
+				Effect(tile_info.col*16, tile_info.row*16, spriteset_vanish, seq_vanish)
 				sounds.play("pickup", 1)
 				break
-		del tile
 
 	def update(self):
 		""" updates world state once per frame """
@@ -559,18 +569,6 @@ def raster_effect(line):
 
 	elif line == 256:
 		world.background.set_position(world.x//2, 0)
-
-# init engine
-engine = Engine.create(WIDTH, HEIGHT, 2, 32, 32)
-engine.set_load_path("assets")
-
-# load spritesets for animation effects
-spriteset_vanish = Spriteset.fromfile("effect_vanish")
-spriteset_death = Spriteset.fromfile("effect_death")
-
-# load sequences
-seq_pack = SequencePack.fromfile("sequences.sqx")
-tiles_info = (TileInfo(), TileInfo(), TileInfo(), TileInfo())
 
 # set raster callback
 engine.set_raster_callback(raster_effect)
