@@ -14,7 +14,7 @@ ASSETS_PATH = "assets"
 SKY_COLORS = (Color.fromstring("#78D7F2"), Color.fromstring("#E2ECF2"))
 
 # init engine
-engine = Engine.create(WIDTH, HEIGHT, 2, 32, 32)
+engine = Engine.create(WIDTH, HEIGHT, 3, 32, 0)
 engine.set_load_path("assets")
 
 # load spritesets for animation effects
@@ -105,13 +105,11 @@ class Actor(object):
 		self.x = x
 		self.y = y
 		self.sprite = engine.sprites[engine.get_available_sprite()]
-		self.animation = engine.animations[engine.get_available_animation()]
 		self.sprite.setup(self.spriteset)
 		self.item = item_ref
 		actors.append(self)
 
 	def __del__(self):
-		self.animation.disable()
 		self.sprite.disable()
 		if self.item is not None:
 			self.item.alive = False
@@ -121,6 +119,28 @@ class Actor(object):
 		world.objects.remove(self.item)
 		self.item = None
 		actors.remove(self)
+
+class Score(Actor):
+	spriteset = Spriteset.fromfile("score")
+
+	def __init__(self, value, x, y):
+		Actor.__init__(self, None, int(x), int(y))
+		if value is 5:
+			self.sprite.set_picture(0)
+		elif value is -5:
+			self.sprite.set_picture(1)
+		elif value is 1:
+			self.sprite.set_picture(2)
+
+		self.t0 = window.get_ticks()
+		self.t1 = self.t0 + 1000
+
+	def update(self):
+		now = window.get_ticks()
+		p = (now - self.t0) / (self.t1 - self.t0)
+		p = -(p * (p - 2))
+		self.sprite.set_position(int(self.x - world.x), int(self.y - p*16))
+		return now < self.t1
 
 class Player(Actor):
 	""" main player entity """
@@ -191,10 +211,12 @@ class Player(Actor):
 		self.yspeed = -150
 		self.state = State.Hit
 		self.medium = Medium.Air
-		self.animation.disable()
+		self.sprite.disable_animation()
 		self.sprite.set_picture(12)
 		self.immunity = 90
 		sounds.play("hurt", 0)
+		world.add_timer(-5)
+		Score(-5, self.x, self.y)
 
 	def update_direction(self):
 		""" updates sprite facing depending on direction """
@@ -335,6 +357,7 @@ class Player(Actor):
 			if actor_type in (Eagle, Opossum):
 				ex, ey = actor.x + actor.size[0]/2, actor.y
 				if abs(px - ex) < 25 and 5 < py - ey < 20:
+					world.add_timer(5)
 					actor.kill()
 					self.set_bounce()
 					Effect(actor.x, actor.y - 10, spriteset_death, seq_death)
@@ -494,11 +517,31 @@ class Effect(Actor):
 			return False
 		return True
 
+class UI(object):
+	""" UI ekements """
+	def __init__(self):
+		self.cols = WIDTH//8
+		self.layer = engine.layers[0]
+		self.layer.setup(Tilemap.create(4, self.cols, None), Tileset.fromfile("ui.tsx"))
+		self.layer.set_clip(0, 0, WIDTH, 32)
+
+	def update_time(self, time):
+		text = "{:03}".format(time)
+		col = (self.cols - len(text)) // 2
+		tile = Tile()
+		for digit in text:
+			base_index = int(digit)
+			tile.index = base_index + 11
+			self.layer.tilemap.set_tile(1, col, tile)
+			tile.index = base_index + 21
+			self.layer.tilemap.set_tile(2, col, tile)
+			col += 1
+
 class World(object):
 	""" world/play field entity """
 	def __init__(self):
-		self.foreground = engine.layers[0]
-		self.background = engine.layers[1]
+		self.foreground = engine.layers[1]
+		self.background = engine.layers[2]
 		self.clouds = 0.0
 		self.foreground.setup(Tilemap.fromfile("layer_foreground.tmx"))
 		self.background.setup(Tilemap.fromfile("layer_background.tmx"))
@@ -508,6 +551,11 @@ class World(object):
 		engine.set_background_color(self.background.tilemap)
 		actors.append(self)
 
+	def start(self):
+		self.time = 30
+		self.add_timer(0)
+		ui.update_time(self.time)
+	
 	def pick_gem(self, tiles_list):
 		""" updates tilemap when player picks a gem """
 		for tile_info in tiles_list:
@@ -515,7 +563,22 @@ class World(object):
 				self.foreground.tilemap.set_tile(tile_info.row, tile_info.col, None)
 				Effect(tile_info.col*16, tile_info.row*16, spriteset_vanish, seq_vanish)
 				sounds.play("pickup", 1)
+				self.add_timer(1)
+				Score(1, tile_info.col*16, tile_info.row*16)
 				break
+
+	def add_timer(self, amount):
+		""" increases/decreases timer timer """
+		self.due_time = window.get_ticks() + 1000
+		if amount >= 0:
+			self.time += amount
+		else:
+			amount = -amount
+			if self.time >= amount:
+				self.time -= amount
+			else:
+				self.time = 0
+		ui.update_time(self.time)
 
 	def update(self):
 		""" updates world state once per frame """
@@ -536,6 +599,10 @@ class World(object):
 		# spawn new entities from object list
 		for item in self.objects:
 			item.try_spawn(self.x)
+
+		now = window.get_ticks()
+		if now > self.due_time:
+			self.add_timer(-1)
 
 		return True
 
@@ -574,6 +641,7 @@ def raster_effect(line):
 engine.set_raster_callback(raster_effect)
 
 actors = list()		# list that contains every active game entity
+ui = UI()			# UI items
 world = World()		# world/level entity
 player = Player()   # player entity
 
@@ -587,6 +655,7 @@ sounds.load("eagle", "vulture.wav")
 
 # window creation & main loop
 window = Window.create()
+world.start()
 while window.process():
 
 	# update active entities list

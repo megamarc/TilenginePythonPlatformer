@@ -58,6 +58,7 @@ class Flags:
 	FLIPY = (1 << 14)  # vertical flip
 	ROTATE = (1 << 13)	# row/column flip (unsupported, Tiled compatibility)
 	PRIORITY = (1 << 12)  # tile goes in front of sprite layer
+	MASKED = (1 << 11) # sprite won't be drawn inside masked region
 
 
 class Error:
@@ -362,6 +363,17 @@ def _raise_exception(result=False):
 		error_string = _tln.TLN_GetErrorString(error)
 		raise TilengineException(error_string.decode())
 
+# World management
+_tln.TLN_LoadWorld.argtypes = [c_char_p, c_int]
+_tln.TLN_LoadWorld.restype = c_bool
+_tln.TLN_SetWorldPosition.argtypes = [c_int, c_int]
+_tln.TLN_SetWorldPosition.restype = None
+_tln.TLN_SetLayerParallaxFactor.argtypes = [c_int, c_float, c_float]
+_tln.TLN_SetLayerParallaxFactor.restype = c_bool
+_tln.TLN_SetSpriteWorldPosition.argtypes = [c_int, c_int, c_int]
+_tln.TLN_SetSpriteWorldPosition.restype = c_bool
+_tln.TLN_ReleaseWorld.argtypes = None
+_tln.TLN_ReleaseWorld.restype = None
 
 # basic management ------------------------------------------------------------
 _tln.TLN_Init.argtypes = [c_int, c_int, c_int, c_int, c_int]
@@ -383,12 +395,11 @@ _tln.TLN_SetBGPalette.argtypes = [c_void_p]
 _tln.TLN_SetBGPalette.restype = c_bool
 _tln.TLN_SetRenderTarget.argtypes = [c_void_p, c_int]
 _tln.TLN_UpdateFrame.argtypes = [c_int]
-_tln.TLN_BeginFrame.argtypes = [c_int]
-_tln.TLN_DrawNextScanline.restype = c_bool
 _tln.TLN_SetLoadPath.argtypes = [c_char_p]
 _tln.TLN_SetLogLevel.argtypes = [c_int]
 _tln.TLN_OpenResourcePack.argtypes = [c_char_p, c_char_p]
 _tln.TLN_OpenResourcePack.restype = c_bool
+_tln.TLN_SetSpritesMaskRegion.argtypes = [c_int, c_int]
 
 class Engine(object):
 	"""
@@ -550,23 +561,6 @@ class Engine(object):
 		"""
 		_tln.TLN_UpdateFrame(num_frame)
 
-	def begin_frame(self, num_frame=0):
-		"""
-		Starts active rendering of the current frame, istead of the callback-based :meth:`Engine.update_frame`.
-		Used in conjunction with :meth:`Engine.draw_next_scanline`
-
-		:param num_frame: optional frame number for animation control
-		"""
-		_tln.TLN_BeginFrame(num_frame)
-
-	def draw_next_scanline(self):
-		"""
-		Draws the next scanline of the frame started with :meth:`Engine.begin_frame` or :meth:`Window.begin_frame`
-
-		:return: True if there are still lines to be drawn, or False when the frame is camplete.
-		"""
-		return _tln.TLN_DrawNextScanline()
-
 	def set_load_path(self, path):
 		"""
 		Sets base path for all data loading static methods `fromfile`
@@ -621,13 +615,50 @@ class Engine(object):
 		:param filename: file with the resource package (.dat extension)
 		:param key: optional null-terminated ASCII string with aes decryption key
 		"""
-		return _tln.TLN_OpenResourcePack(filename, key=None)
+		ok = _tln.TLN_OpenResourcePack(filename, key=None)
+		_raise_exception(ok)
 
 	def close_resource_pack(self):
 		"""
 		Closes currently opened resource package and unbinds it 
 		"""
 		return _tln.TLN_CloseResourcePack()
+
+	def set_sprites_mask_region(self, top, bottom):
+		"""
+		Defines a sprite masking region between the two scanlines. Sprites masked with Sprite.enable_mask_region() won't be drawn inside this region
+		
+		:param top: upper scaline of the exclusion region
+		:param bottom: lower scanline of the exclusion region
+		"""
+		ok = _tln.TLN_SetSpritesMaskRegion(top, bottom)
+		_raise_exception(ok)
+
+	def load_world(self, filename, first_layer=0):
+		"""
+		Loads and assigns complete TMX file
+
+		:param filename: main .tmx file to load
+		:first_layer: optional layer index to start to assign, by default 0
+		"""
+		ok =_tln.TLN_LoadWorld(filename, first_layer)
+		_raise_exception(ok)
+
+	def set_world_position(self, x, y):
+		"""
+		Sets global world position, moving all layers in sync according to their parallax factor
+		
+		:param x: horizontal position in world space
+		:param y: vertical position in world space
+		"""
+		ok = _tln.TLN_SetWorldPosition(x, y)
+		_raise_exception(ok)
+
+	def release_world(self):
+		"""
+		Releases world resources loaded with Engine.load_world
+		"""
+		_tln.TLN_ReleaseWorld()
 
 
 # window management -----------------------------------------------------------
@@ -647,7 +678,6 @@ _tln.TLN_DrawFrame.argtypes = [c_int]
 _tln.TLN_EnableCRTEffect.argtypes = [c_int, c_ubyte, c_ubyte, c_ubyte, c_ubyte, c_ubyte, c_ubyte, c_bool, c_ubyte]
 _tln.TLN_GetTicks.restype = c_int
 _tln.TLN_Delay.argtypes = [c_int]
-_tln.TLN_BeginWindowFrame.argtypes = [c_int]
 _tln.TLN_GetWindowWidth.restype = c_int
 _tln.TLN_GetWindowHeight.restype = c_int
 
@@ -839,20 +869,6 @@ class Window(object):
 		:param msecs: number of milliseconds to pause
 		"""
 		_tln.TLN_Delay(msecs)
-
-	def begin_frame(self, num_frame):
-		"""
-		Begins active rendering frame to the window, used in tandem with :meth:`Engine.draw_next_scanline` and :meth:`Window.end_frame`
-
-		:param num_frame: optional frame number for animation control
-		"""
-		_tln.TLN_BeginWindowFrame(num_frame)
-
-	def end_frame(self):
-		"""
-		Finishes rendering the current frame and updates the window, used in tandem with :meth:`Window.begin_frame` and :meth:`Engine.draw_next_scanline`
-		"""
-		_tln.TLN_EndWindowFrame()
 
 
 # spritesets management -----------------------------------------------------------
@@ -1679,6 +1695,8 @@ _tln.TLN_DisableLayerMosaic.argtypes = [c_int]
 _tln.TLN_DisableLayerMosaic.restype = c_bool
 _tln.TLN_DisableLayer.argtypes = [c_int]
 _tln.TLN_DisableLayer.restype = c_bool
+_tln.TLN_EnableLayer.argtypes = [c_int]
+_tln.TLN_EnableLayer.restype = c_bool
 _tln.TLN_GetLayerPalette.argtypes = [c_int]
 _tln.TLN_GetLayerPalette.restype = c_void_p
 _tln.TLN_GetLayerTile.argtypes = [c_int, c_int, c_int, POINTER(TileInfo)]
@@ -1687,13 +1705,8 @@ _tln.TLN_GetLayerWidth.argtypes = [c_int]
 _tln.TLN_GetLayerWidth.restype = c_int
 _tln.TLN_GetLayerHeight.argtypes = [c_int]
 _tln.TLN_GetLayerHeight.restype = c_int
-
 _tln.TLN_SetLayerPriority.argtypes = [c_int, c_bool]
 _tln.TLN_SetLayerPriority.restype = c_bool
-_tln.TLN_SetLayerParent.argtypes = [c_int, c_int]
-_tln.TLN_SetLayerParent.restype = c_bool
-_tln.TLN_DisableLayerParent.argtypes = [c_int]
-_tln.TLN_DisableLayerParent.restype = c_bool
 
 class Layer(object):
 	"""
@@ -1883,7 +1896,14 @@ class Layer(object):
 		"""
 		ok = _tln.TLN_DisableLayer(self)
 		_raise_exception(ok)
-
+		
+	def enable(self):
+		"""
+		Re-enables previously disabled layer
+		"""
+		ok = _tln.TLN_EnableLayer(self)
+		_raise_exception(ok)
+		
 	def get_palette(self):
 		"""
 		Gets the layer active palette
@@ -1913,18 +1933,18 @@ class Layer(object):
 
 		:param enable: True for enable, False for disable
 		"""
-		return _tln.TLN_SetLayerPriority(self, enable)
+		ok = _tln.TLN_SetLayerPriority(self, enable)
+		_raise_exception(ok)
 
-	def set_parent(self, parent):
+	def set_parallax_factor(self, x, y):
 		"""
-		Sets parent layer to scroll in sync
-
-		:param parent: Layer object to set as parent for this layer, or None to disable parent
+		Sets layer parallax factor to use in conjunction with Engine.set_world_position()
+		
+		:param x: Horizontal parallax factor
+		:param y: Vertical parallax factor
 		"""
-		if parent is not None:
-			return _tln.TLN_SetLayerParent(self, parent)
-		else:
-			return _tln.TLN_DisableLayerParent(self)
+		ok = _tln.TLN_SetLayerParallaxFactor(self, x, y)
+		_raise_exception(ok)
 
 
 # sprite management -----------------------------------------------------------
@@ -1934,6 +1954,10 @@ _tln.TLN_SetSpriteSet.argtypes = [c_int, c_void_p]
 _tln.TLN_SetSpriteSet.restype = c_bool
 _tln.TLN_SetSpriteFlags.argtypes = [c_int, c_ushort]
 _tln.TLN_SetSpriteFlags.restype = c_bool
+_tln.TLN_EnableSpriteFlag.argtypes = [c_int, c_uint, c_bool]
+_tln.TLN_EnableSpriteFlag.restype = c_bool
+_tln.TLN_SetSpritePivot.argtypes = [c_int, c_float, c_float]
+_tln.TLN_SetSpritePivot.restype = c_bool
 _tln.TLN_SetSpritePosition.argtypes = [c_int, c_int, c_int]
 _tln.TLN_SetSpritePosition.restype = c_bool
 _tln.TLN_SetSpritePicture.argtypes = [c_int, c_int]
@@ -1963,7 +1987,14 @@ _tln.TLN_GetAnimationState.argtypes = [c_int]
 _tln.TLN_GetAnimationState.restype = c_bool
 _tln.TLN_DisableSpriteAnimation.argtypes = [c_int]
 _tln.TLN_DisableSpriteAnimation.restype = c_bool
-
+_tln.TLN_GetSpriteState.argtypes = [c_int, POINTER(SpriteState)]
+_tln.TLN_GetSpriteState.restype = c_bool
+_tln.TLN_SetFirstSprite.argtypes = [c_int]
+_tln.TLN_SetFirstSprite.restype = c_bool
+_tln.TLN_SetNextSprite.argtypes = [c_int, c_int]
+_tln.TLN_SetNextSprite.restype = c_bool
+_tln.TLN_EnableSpriteMasking.argtypes = [c_int, c_bool]
+_tln.TLN_EnableSpriteMasking.restype = c_bool
 
 class Sprite(object):
 	"""
@@ -2006,6 +2037,26 @@ class Sprite(object):
 		"""
 		ok = _tln.TLN_SetSpriteFlags(self, flags)
 		_raise_exception(ok)
+		
+	def enable_flag(self, flag, value=True):
+		"""
+		Enables (or disables) specified flag for a sprite
+
+		:param flag: Combination of defined :class:`Flag` values
+		:param value: True to enable (default) or False to disable
+		"""
+		ok = _tln.TLN_EnableSpriteFlag(self, flag, value)
+		_raise_exception(ok)
+
+	def set_pivot(self, u, v):
+		"""
+		Sets sprite pivot point for placement and scaling source. By default is at (0,0) = top left corner. Uses normalized coordinates in [ 0.0 - 1.0] range.
+
+		:param u: Horizontal position (0.0 = full left, 1.0 = full right)
+		:param v: Vertical position (0.0 = top, 1.0 = bottom)
+		"""
+		ok = _tln.TLN_SetSpritePivot(self, u, v)
+		_raise_exception(ok)
 
 	def set_position(self, x, y):
 		"""
@@ -2016,6 +2067,16 @@ class Sprite(object):
 		"""
 		ok = _tln.TLN_SetSpritePosition(self, x, y)
 		_raise_exception(ok)
+
+	def set_world_position(self, x, y):
+		"""
+		Sets the sprite position in world space coordinates
+		
+		:param x: Horizontal world position of pivot (0 = left margin)
+		:param y: Vertical world position of pivot (0 = top margin)
+		"""
+		ok = _tln.TLN_SetSpriteWorldPosition(self, x, y)
+		_raise_exception(ok)		
 
 	def set_picture(self, picture):
 		"""
@@ -2139,6 +2200,38 @@ class Sprite(object):
 		Disables the animation so it doesn't run
 		"""
 		ok = _tln.TLN_DisableSpriteAnimation(self)
+		_raise_exception(ok)
+
+	def get_state(self, state):
+		"""
+		Returns runtime info about the sprite
+
+		:param state: user-allocated SpriteState structure
+		"""
+		ok = _tln.TLN_GetSpriteState(self, state)
+		_raise_exception(ok)
+
+	def set_first(self):
+		"""
+		Sets this to be the first sprite drawn (beginning of list)
+		"""
+		ok = _tln.TLN_SetFirstSprite(self)
+		_raise_exception(ok)
+
+	def set_next(self, next):
+		"""
+		Sets the next sprite to after this one, builds list
+
+		:param next: sprite to draw after this one
+		"""
+		ok = _tln.TLN_SetNextSprite(self, next)
+		_raise_exception(ok)
+	
+	def enable_masking(self, enable):
+		"""
+		Enables or disables masking for this sprite, if enabled it won't be drawn inside the region set up with Engine.set_sprite_mask_region()
+		"""
+		ok = _tln.TLN_EnableSpriteMasking(self, enable)
 		_raise_exception(ok)
 
 
