@@ -56,6 +56,26 @@ You must also install the binding for using SDL2 from python language. From a te
 pip install pysdl2
 ```
 
+## Source code organisation
+This is a breif overview about modules breakdown in `/src` directory
+
+|Module                                     |  Role
+|-------------------------------------------|---------------------
+|[`platformer.py`](src/platformer.py)       | Main module: init and game loop
+|[`tilengine.py`](src/tilengine.py)         | Tilengine binding for python
+|[`raster_effect.py`](src/raster_effect.py) | Tilengine raster effects for background
+|[`game.py`](src/game.py)                   | Game backbone, global instances
+|[`actor.py`](src/actor.py)                 | Base class for all game entities
+|[`player.py`](src/player.py)               | Player class
+|[`opossum.py`](src/opossum.py)             | Terrestrial enemy class
+|[`eagle.py`](src/eagle.py)                 | Flying enemy class
+|[`score.py`](src/score.py)                 | Pop-up animation of score class
+|[`effect.py`](src/effect.py)               | Generic one-shot animation class
+|[`world.py`](src/world.py)                 | World/level class
+|[`UI.py`](src/ui.py)                       | HUD UI class (score, time...)
+|[`rectangle.py`](src/rectangle.py)         | Simple helper class for rectangles
+|[`sound.py`](src/sound.py)                 | Sound effects manager
+
 ## Acknowledge
 Graphic assets are copyrighted and owned by their original authors
 * Backgrounds created by ansimuz: https://ansimuz.itch.io/magic-cliffs-environment

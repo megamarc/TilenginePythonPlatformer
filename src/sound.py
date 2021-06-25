@@ -1,3 +1,5 @@
+""" Sound effect helper """
+
 from sdl2 import *
 from sdl2.sdlmixer import *
 
