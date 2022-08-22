@@ -326,11 +326,11 @@ _window = None		# singleton window
 
 # load native library
 if _platform == "linux" or _platform == "linux2":
-	_tln = cdll.LoadLibrary("libTilengine.so")
+	_tln = cdll.LoadLibrary("./libTilengine.so")
 elif _platform == "win32":
-	_tln = cdll.LoadLibrary("Tilengine.dll")
+	_tln = cdll.LoadLibrary("./Tilengine.dll")
 elif _platform == "darwin":
-	_tln = cdll.LoadLibrary("Tilengine.dylib")
+	_tln = cdll.LoadLibrary("./Tilengine.dylib")
 
 # callback types for user functions
 _video_callback_function = CFUNCTYPE(None, c_int)
