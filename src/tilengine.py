@@ -1,11 +1,11 @@
 """
 Python wrapper for Tilengine retro graphics engine
-Updated to library version 2.9.1
+Updated to library version 2.11.0
 http://www.tilengine.org
 """
 
 """
-Copyright (c) 2017-2021 Marc Palacios Domenech
+Copyright (c) 2017-2022 Marc Palacios Domenech
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +32,8 @@ SOFTWARE.
 # pylint: disable=R0201
 from sys import platform as _platform
 from ctypes import *
+from os import path
+from typing import List, Union, Optional
 
 
 # constants --------------------------------------------------------------------
@@ -59,6 +61,7 @@ class Flags:
 	ROTATE = (1 << 13)	# row/column flip (unsupported, Tiled compatibility)
 	PRIORITY = (1 << 12)  # tile goes in front of sprite layer
 	MASKED = (1 << 11) # sprite won't be drawn inside masked region
+	TILESET = (7 << 8) # tileset index
 
 
 class Error:
@@ -112,11 +115,19 @@ class Input:
 
 PLAYER1, PLAYER2, PLAYER3, PLAYER4 = range(4)
 
+
 class Overlay:
 	"""
-	Available CRT overlay patterns
+	Unised, kept for backwards compatibility with pre-2.10 release
 	"""
 	NONE, SHADOWMASK, APERTURE, SCANLINES, CUSTOM = range(5)
+
+
+class CRT:
+	"""
+	Types of crt effect for release 2.10
+	"""
+	SLOT, APERTURE, SHADOW = range(3)
 
 
 class TilengineException(Exception):
@@ -155,7 +166,7 @@ class ColorStrip(Structure):
 		("dir", c_ubyte)
 	]
 
-	def __init__(self, delay, first, count, direction):
+	def __init__(self, delay: int, first: int, count: int, direction: int):
 		self.delay = delay
 		self.first = first
 		self.count = count
@@ -179,7 +190,7 @@ class SequenceFrame(Structure):
 		("delay", c_int)
 	]
 
-	def __init__(self, index, delay):
+	def __init__(self, index: int, delay: int):
 		self.index = index
 		self.delay = delay
 
@@ -223,7 +234,7 @@ class SpriteData(Structure):
 		("h", c_int)
 	]
 
-	def __init__(self, name, x, y, width, height):
+	def __init__(self, name: str, x: int, y: int, width: int, height: int):
 		self.name = _encode_string(name)
 		self.x = x
 		self.y = y
@@ -240,7 +251,7 @@ class TileAttributes(Structure):
 		("priority", c_bool)
 	]
 
-	def __init__(self, tile_type, priority):
+	def __init__(self, tile_type: int, priority: bool):
 		self.type = tile_type
 		self.priority = priority
 
@@ -306,13 +317,13 @@ class Color(object):
 	"""
 	Represents a color value in RGB format
 	"""
-	def __init__(self, r, g, b):
+	def __init__(self, r: int, g: int, b: int):
 		self.r = r
 		self.g = g
 		self.b = b
 
 	@classmethod
-	def fromstring(cls, string):
+	def fromstring(cls, string: str):
 		""" creates a color from a ccs-style #rrggbb string """
 		r = int(string[1:3], 16)
 		g = int(string[3:5], 16)
@@ -321,16 +332,26 @@ class Color(object):
 
 
 # module internal variables
-_tln = None			# handle to shared native library
-_window = None		# singleton window
+_tln: "Engine"			# handle to shared native library
+_window: "Window"		# singleton window
+_window_created = False	# singleton window is created
 
-# load native library
+# select library depending on OS
+_library = ""
 if _platform == "linux" or _platform == "linux2":
-	_tln = cdll.LoadLibrary("./libTilengine.so")
+	_library = "libTilengine.so"
 elif _platform == "win32":
-	_tln = cdll.LoadLibrary("./Tilengine.dll")
+	_library = "Tilengine.dll"
 elif _platform == "darwin":
-	_tln = cdll.LoadLibrary("./Tilengine.dylib")
+	_library = "Tilengine.dylib"
+else:
+	raise OSError("Unsupported platform: must be Windows, Linux or Mac OS")
+
+# load native library. Try local path, if not, system path
+if path.isfile(_library):
+	_tln = cdll.LoadLibrary(f"./{_library}")
+else:
+	_tln = cdll.LoadLibrary(_library)
 
 # callback types for user functions
 _video_callback_function = CFUNCTYPE(None, c_int)
@@ -338,13 +359,13 @@ _blend_function = CFUNCTYPE(c_ubyte, c_ubyte, c_ubyte)
 
 
 # convert string to c_char_p
-def _encode_string(string):
+def _encode_string(string: Optional[str]):
 	if string is not None:
 		return string.encode()
 	return None
 
 # convert c_char_p to string
-def _decode_string(byte_array):
+def _decode_string(byte_array: Optional[bytearray]):
 	if byte_array is not None:
 		return byte_array.decode()
 	return None
@@ -357,7 +378,7 @@ _tln.TLN_GetErrorString.restype = c_char_p
 
 
 # raises exception depending on error code
-def _raise_exception(result=False):
+def _raise_exception(result: bool=False):
 	if result is not True:
 		error = _tln.TLN_GetLastError()
 		error_string = _tln.TLN_GetErrorString(error)
@@ -410,7 +431,7 @@ class Engine(object):
 	:ivar animations: tuple of Animation objects, one entry per animation
 	:ivar version: library version number
 	"""
-	def __init__(self, handle, num_layers, num_sprites, num_animations):
+	def __init__(self, handle: c_void_p, num_layers: int, num_sprites: int, num_animations: int):
 		self._as_parameter_ = handle
 		self.layers = tuple([Layer(n) for n in range(num_layers)])
 		self.sprites = tuple([Sprite(n) for n in range(num_sprites)])
@@ -421,7 +442,7 @@ class Engine(object):
 		self.cb_blend_func = None
 		self.library = _tln
 
-		version = [1,21,0]	# expected library version
+		version = [2,11,0]	# expected library version
 		req_version = (version[0] << 16) + (version[1] << 8) + version[2]
 		if self.version < req_version:
 			maj_version = self.version >> 16
@@ -431,7 +452,7 @@ class Engine(object):
 				(maj_version, min_version, bug_version, version[0], version[1], version[2]))
 
 	@classmethod
-	def create(cls, width, height, num_layers, num_sprites, num_animations):
+	def create(cls, width: int, height: int, num_layers: int, num_sprites: int, num_animations: int) -> "Engine":
 		"""
 		Static method that creates a new instance of the engine
 
@@ -452,13 +473,13 @@ class Engine(object):
 	def __del__(self):
 		_tln.TLN_DeleteContext(self)
 
-	def get_num_objects(self):
+	def get_num_objects(self) -> int:
 		"""
 		:return: the number of objets used by the engine so far
 		"""
 		return _tln.TLN_GetNumObjects()
 
-	def get_used_memory(self):
+	def get_used_memory(self) -> int:
 		"""
 		:return: the total amount of memory used by the objects
 		"""
@@ -484,7 +505,7 @@ class Engine(object):
 		"""
 		_tln.TLN_DisableBGColor()
 
-	def set_background_bitmap(self, bitmap):
+	def set_background_bitmap(self, bitmap: "Bitmap"):
 		"""
 		Sets a static bitmap as background
 
@@ -493,7 +514,7 @@ class Engine(object):
 		ok = _tln.TLN_SetBGBitmap(bitmap)
 		_raise_exception(ok)
 
-	def set_background_palette(self, palette):
+	def set_background_palette(self, palette: "Palette"):
 		"""
 		Sets the palette for the background bitmap. By default it is assigned the palette
 		of the bitmap passed in :meth:`Engine.set_background_bitmap`
@@ -561,7 +582,7 @@ class Engine(object):
 		"""
 		_tln.TLN_UpdateFrame(num_frame)
 
-	def set_load_path(self, path):
+	def set_load_path(self, path: str):
 		"""
 		Sets base path for all data loading static methods `fromfile`
 
@@ -589,33 +610,33 @@ class Engine(object):
 		self.cb_blend_func = _blend_function(blend_function)
 		_tln.TLN_SetCustomBlendFunction(self.cb_blend_func)
 
-	def set_log_level(self, log_level):
+	def set_log_level(self, log_level: int):
 		"""
 		Sets output messages
 		"""
 		_tln.TLN_SetLogLevel(log_level)
 
-	def get_available_sprite(self):
+	def get_available_sprite(self) -> int:
 		"""
 		:return: Index of the first unused sprite (starting from 0) or -1 if none found
 		"""
 		index = _tln.TLN_GetAvailableSprite()
 		return index
 
-	def get_available_animation(self):
+	def get_available_animation(self) -> int:
 		"""
 		:return: Index of the first unused animation (starting from 0) or -1 if none found
 		"""
 		index = _tln.TLN_GetAvailableAnimation()
 		return index
 
-	def open_resource_pack(self, filename, key):
+	def open_resource_pack(self, filename: str, key: str=''):
 		"""
 		Opens the resource package with optional aes-128 key and binds it
 		:param filename: file with the resource package (.dat extension)
 		:param key: optional null-terminated ASCII string with aes decryption key
 		"""
-		ok = _tln.TLN_OpenResourcePack(filename, key=None)
+		ok = _tln.TLN_OpenResourcePack(_encode_string(str(filename)), _encode_string(str(key)))
 		_raise_exception(ok)
 
 	def close_resource_pack(self):
@@ -624,7 +645,7 @@ class Engine(object):
 		"""
 		return _tln.TLN_CloseResourcePack()
 
-	def set_sprites_mask_region(self, top, bottom):
+	def set_sprites_mask_region(self, top: int, bottom: int):
 		"""
 		Defines a sprite masking region between the two scanlines. Sprites masked with Sprite.enable_mask_region() won't be drawn inside this region
 		
@@ -634,7 +655,7 @@ class Engine(object):
 		ok = _tln.TLN_SetSpritesMaskRegion(top, bottom)
 		_raise_exception(ok)
 
-	def load_world(self, filename, first_layer=0):
+	def load_world(self, filename: str, first_layer: int=0):
 		"""
 		Loads and assigns complete TMX file
 
@@ -644,7 +665,7 @@ class Engine(object):
 		ok =_tln.TLN_LoadWorld(filename, first_layer)
 		_raise_exception(ok)
 
-	def set_world_position(self, x, y):
+	def set_world_position(self, x: int, y: int):
 		"""
 		Sets global world position, moving all layers in sync according to their parallax factor
 		
@@ -676,6 +697,7 @@ _tln.TLN_DefineInputKey.argtypes = [c_int, c_int, c_uint]
 _tln.TLN_DefineInputButton.argtypes = [c_int, c_int, c_ubyte]
 _tln.TLN_DrawFrame.argtypes = [c_int]
 _tln.TLN_EnableCRTEffect.argtypes = [c_int, c_ubyte, c_ubyte, c_ubyte, c_ubyte, c_ubyte, c_ubyte, c_bool, c_ubyte]
+_tln.TLN_ConfigCRTEffect.argtypes = [c_int, c_bool]
 _tln.TLN_GetTicks.restype = c_int
 _tln.TLN_Delay.argtypes = [c_int]
 _tln.TLN_GetWindowWidth.restype = c_int
@@ -693,21 +715,21 @@ class Window(object):
 		self.cb_sdl_func = None
 
 	@classmethod
-	def create(cls, title='Tilengine window', overlay=None, flags=WindowFlags.VSYNC):
+	def create(cls, title:str='Tilengine window', overlay=None, flags:int=WindowFlags.VSYNC) -> "Window":
 		"""
 		Static method that creates a single-threaded window that must be used in conjunction with
 		:meth:`Window.process` in a loop
 
-		:param overlay: name of an optional bitmap for use as overlay by the CRT effect
+		:param overlay: obsolete, kept for compatibility with pre 2.10 release with old CRT effect
 		:param flags: optional flags combination of :class:`WindowFlags` values
 		:return: instance of the created window
 		"""
-		global _window
+		global _window, _window_created
 
 		"""Added the ability to choose the window title ~AleK3y"""
 		_tln.TLN_SetWindowTitle(_encode_string(str(title)))
 
-		if _window is not None:
+		if _window_created:
 			return _window
 		ok = _tln.TLN_CreateWindow(_encode_string(overlay), flags)
 		if ok is True:
@@ -715,17 +737,18 @@ class Window(object):
 			_window.num_frame = 0
 			_window.width = _tln.TLN_GetWindowWidth()
 			_window.height = _tln.TLN_GetWindowHeight()
+			_window_created = True
 			return _window
 		else:
 			_raise_exception(ok)
 
 	@classmethod
-	def create_threaded(cls, overlay=None, flags=WindowFlags.VSYNC):
+	def create_threaded(cls, overlay=None, flags:int=WindowFlags.VSYNC) -> "Window":
 		"""
 		Static method that creates a multi-threaded window that runs in its own thread without user loop.
 		Used mainly in python interactive console
 
-		:param overlay: name of an optional bitmap for use as overlay by the CRT effect
+		:param overlay: obsolete, kept for compatibility with pre 2.10 release with old CRT effect
 		:param flags: optional flags combination of :class:`WindowFlags` values
 		"""
 		global _window
@@ -751,14 +774,14 @@ class Window(object):
 		self.num_frame += 1
 		return _tln.TLN_ProcessWindow()
 
-	def is_active(self):
+	def is_active(self) -> bool:
 		"""
 		:return: True if window is active or False if the user has requested to end the application \
 			(by pressing Esc key or clicking the close button)
 		"""
 		return _tln.TLN_IsWindowActive()
 
-	def get_input(self, input_id):
+	def get_input(self, input_id: int) -> bool:
 		"""
 		Returns the state of a given input
 
@@ -777,7 +800,7 @@ class Window(object):
 		"""
 		return _tln.TLN_GetInput(input_id)
 
-	def enable_input(self, player, state):
+	def enable_input(self, player: int, state: bool):
 		"""
 		Enables or disables input for specified player
 
@@ -786,7 +809,7 @@ class Window(object):
 		"""
 		_tln.TLN_EnableInput(player, state)
 
-	def assign_joystick(self, player, joystick_index):
+	def assign_joystick(self, player: int, joystick_index: int):
 		"""
 
 		:param player: player identifier to configure (PLAYER1 - PLAYER4)
@@ -794,21 +817,23 @@ class Window(object):
 		"""
 		_tln.TLN_AssignInputJoystick(player, joystick_index)
 
-	def define_input_key(self, player, input, key):
+	def define_input_key(self, player: int, input: int, key: int):
 		"""
 		Assigns a keyboard input to a player
 
 		:param player: player identifier to configure (PLAYER1 - PLAYER4)
 		:param input: input to assign, member of :class:`Input`
+		:param key: ASCII key value or scancode as defined in SDL.h		
 		"""
 		_tln.TLN_DefineInputKey(player, input, key)
 
-	def define_input_button(self, player, input, button):
+	def define_input_button(self, player: int, input: int, button: int):
 		"""
 		Assigns a joystick button input to a player
 
 		:param player: player identifier to configure (PLAYER1 - PLAYER4)
 		:param input: input to assign, member of :class:`Input`
+		:param button: button index
 		"""
 		_tln.TLN_DefineInputButton(player, input, button)
 
@@ -823,19 +848,18 @@ class Window(object):
 		"""
 		_tln.TLN_WaitRedraw()
 
+	def config_crt_effect(self, crt_type: int, rf_blur: bool):
+		"""
+		Enables CRT simulation post-processing effect to give true retro appeareance
+
+		:param crt_type: One possible value of \ref CRT class
+		:param rf_blur: Optional RF (horizontal) blur, increases CPU usage
+		"""
+		_tln.TLN_ConfigCRTEffect(crt_type, rf_blur)
+	
 	def enable_crt_effect(self, overlay_id, overlay_blend, threshold, v0, v1, v2, v3, blur, glow_factor):
 		"""
-		Enables CRT simulation post-processing effect to give true retro appearance. Enabled by default.
-
-		:param overlay_id: One of the defined :class:`Overlay` values. Choosing `Overlay.CUSTOM` selects the image passed when calling :meth:`Window.create`
-		:param overlay_blend: blend factor for overlay image. 0 is full transparent (no effect), 255 is full blending
-		:param threshold: Middle point of the brightness mapping function
-		:param v0: output brightness when input brightness = 0
-		:param v1: output brightness when input brightness = threshold
-		:param v2: output brightness when input brightness = threshold (to create discontinuity with v1)
-		:param v3: output brightness when input brightness = 255
-		:param blur: True to add gaussian blur to brightness overlay, softens image
-		:param glow_factor: blend addition factor for brightness overlay. 0 is not addition, 255 is full addition
+		Obsolete, kept for backward compatibility with pre- 2.10 release. Use config_crt_effect() instead.
 		"""
 		_tln.TLN_EnableCRTEffect(overlay_id, overlay_blend, threshold, v0, v1, v2, v3, blur, glow_factor)
 
@@ -845,7 +869,10 @@ class Window(object):
 		"""
 		_tln.TLN_DisableCRTEffect()
 
-	def set_sdl_callback(self,sdl_callback):
+	def set_sdl_callback(self, sdl_callback):
+		"""
+		Sets callback to process other SDL2 events inside the window
+		"""
 
 		if sdl_callback is None:
 			self.cb_sdl_func = None
@@ -856,13 +883,13 @@ class Window(object):
 		_tln.TLN_SetSDLCallback(self.cb_sdl_func)
 
 
-	def get_ticks(self):
+	def get_ticks(self) -> int:
 		"""
 		:return: the number of milliseconds since application start
 		"""
 		return _tln.TLN_GetTicks()
 
-	def delay(self, msecs):
+	def delay(self, msecs: int):
 		"""
 		Suspends execition for a fixed time
 
@@ -894,19 +921,19 @@ class Spriteset(object):
 
 	:ivar palette: original palette attached inside the resource file
 	"""
-	def __init__(self, handle, owner=True):
+	def __init__(self, handle: c_void_p, owner: bool=True):
 		self._as_parameter_ = handle
 		self.owner = owner
 		self.library = _tln
 		self.palette = Palette(_tln.TLN_GetSpritesetPalette(handle), False)
 
 	@classmethod
-	def create(cls, bitmap, sprite_data):
+	def create(cls, bitmap: "Bitmap", sprite_data: POINTER(SpriteData)) -> "Spriteset":
 		"""
 		Static method that creates an empty spriteset
 
 		:param bitmap: Bitmap object containing the packaged sprite pictures
-		:param sprite_data: list of SpriteEntry tuples describing each sprite pictures
+		:param sprite_data: list of SpriteData tuples describing each sprite pictures
 		:return: instance of the created object
 		"""
 		handle = _tln.TLN_CreateSpriteset(bitmap, sprite_data, len(sprite_data))
@@ -916,7 +943,7 @@ class Spriteset(object):
 			_raise_exception()
 
 	@classmethod
-	def fromfile(cls, filename):
+	def fromfile(cls, filename: str) -> "Spriteset":
 		"""
 		Static method that loads a spriteset from a pair of png/txt files
 
@@ -929,7 +956,7 @@ class Spriteset(object):
 		else:
 			_raise_exception()
 
-	def clone(self):
+	def clone(self) -> "Spriteset":
 		"""
 		Creates a copy of the object
 
@@ -941,7 +968,7 @@ class Spriteset(object):
 		else:
 			_raise_exception()
 
-	def set_sprite_data(self, entry, data, pixels, pitch):
+	def set_sprite_data(self, entry: int, data: POINTER(SpriteData), pixels: POINTER(c_byte), pitch: int):
 		"""
 		Sets attributes and pixels of a given sprite inside a spriteset
 
@@ -953,7 +980,7 @@ class Spriteset(object):
 		ok = _tln.TLN_SetSpritesetData(self, entry, data, pixels, pitch)
 		_raise_exception(ok)
 
-	def get_sprite_info(self, entry, info):
+	def get_sprite_info(self, entry: int, info: POINTER(SpriteInfo)):
 		"""
 		Gets info about a given sprite into an user-provided SpriteInfo tuple
 
@@ -1004,7 +1031,7 @@ class Tileset(object):
 	:ivar palette: original palette attached inside the resource file
 	:ivar sequence_pack: optional SequencePack embedded inside the Tileset for tileset animation
 	"""
-	def __init__(self, handle, owner=True):
+	def __init__(self, handle: c_void_p, owner: bool=True):
 		self._as_parameter_ = handle
 		self.owner = owner
 		self.library = _tln
@@ -1015,7 +1042,7 @@ class Tileset(object):
 		self.sequence_pack = SequencePack(_tln.TLN_GetTilesetSequencePack(handle), False)
 
 	@classmethod
-	def create(cls, num_tiles, width, height, palette, sequence_pack=None, attributes=None):
+	def create(cls, num_tiles: int, width: int, height: int, palette: "Palette", sequence_pack: Optional["SequencePack"]=None, attributes: Optional[POINTER(TileAttributes)]=None) -> "Tileset":
 		"""
 		Static method that creates an empty Tileset at runtime
 
@@ -1024,7 +1051,7 @@ class Tileset(object):
 		:param height: Height of each tile (must be multiple of 8)
 		:param palette: Palette object
 		:param sequence_pack: Optional SequencePack with associated Tileset animations
-		:param attributes: Optional list of attributes, one element per tile in the tileset
+		:param attributes: Optional list of TileAttributes, one element per tile in the tileset
 		:return: instance of the created object
 		"""
 		handle = _tln.TLN_CreateTileset(num_tiles, width, height, palette, sequence_pack, attributes)
@@ -1034,7 +1061,7 @@ class Tileset(object):
 			_raise_exception()
 
 	@classmethod
-	def fromfile(cls, filename):
+	def fromfile(cls, filename: str) -> "Tileset":
 		"""
 		Static method that loads a Tiled TSX tileset from file
 
@@ -1047,7 +1074,7 @@ class Tileset(object):
 		else:
 			_raise_exception()
 
-	def clone(self):
+	def clone(self) -> "Tileset":
 		"""
 		Creates a copy of the object
 
@@ -1059,7 +1086,7 @@ class Tileset(object):
 		else:
 			_raise_exception()
 
-	def set_pixels(self, entry, data, pitch):
+	def set_pixels(self, entry: int, data: POINTER(c_byte), pitch: int):
 		"""
 		Sets pixel data for a single tile
 
@@ -1087,8 +1114,10 @@ _tln.TLN_GetTilemapRows.argtypes = [c_void_p]
 _tln.TLN_GetTilemapRows.restype = c_int
 _tln.TLN_GetTilemapCols.argtypes = [c_void_p]
 _tln.TLN_GetTilemapCols.restype = c_int
-_tln.TLN_GetTilemapTileset.argtypes = [c_void_p]
-_tln.TLN_GetTilemapTileset.restype = c_void_p
+_tln.TLN_SetTilemapTileset2.argtypes = [c_void_p, c_void_p, c_int]
+_tln.TLN_SetTilemapTileset2.restype = c_bool
+_tln.TLN_GetTilemapTileset2.argtypes = [c_void_p, c_int]
+_tln.TLN_GetTilemapTileset2.restype = c_void_p
 _tln.TLN_GetTilemapTile.argtypes = [c_void_p, c_int, c_int, POINTER(Tile)]
 _tln.TLN_GetTilemapTile.restype = c_bool
 _tln.TLN_SetTilemapTile.argtypes = [c_void_p, c_int, c_int, POINTER(Tile)]
@@ -1107,20 +1136,20 @@ class Tilemap(object):
 	:ivar cols: number of columns (horizontal cells)
 	:ivar tileset: Tileset object attached inside the resource file
 	"""
-	def __init__(self, handle, owner=True):
+	def __init__(self, handle: c_void_p, owner: bool=True):
 		self._as_parameter_ = handle
 		self.owner = owner
 		self.library = _tln
 		self.rows = _tln.TLN_GetTilemapRows(handle)
 		self.cols = _tln.TLN_GetTilemapCols(handle)
-		tileset_handle = _tln.TLN_GetTilemapTileset(handle)
+		tileset_handle = _tln.TLN_GetTilemapTileset2(handle, 0)
 		if tileset_handle is not None:
 			self.tileset = Tileset(tileset_handle, False)
 		else:
 			self.tileset = None
 
 	@classmethod
-	def create(cls, rows, cols, tiles, background_color=0, tileset=None):
+	def create(cls, rows: int, cols: int, tiles: POINTER(Tile), background_color: int=0, tileset: Optional[Tileset]=None) -> "Tilemap":
 		"""
 		Static method that creates an empty tilemap
 
@@ -1138,7 +1167,7 @@ class Tilemap(object):
 			_raise_exception()
 
 	@classmethod
-	def fromfile(cls, filename, layer_name=None):
+	def fromfile(cls, filename: str, layer_name: Optional[str]=None) -> "Tilemap":
 		"""
 		Static method that loads a Tiled TMX tilemap from file
 
@@ -1153,7 +1182,7 @@ class Tilemap(object):
 		else:
 			_raise_exception()
 
-	def clone(self):
+	def clone(self) -> "Tilemap":
 		"""
 		Creates a copy of the object
 
@@ -1165,18 +1194,34 @@ class Tilemap(object):
 		else:
 			_raise_exception()
 
-	def get_tile(self, row, col, tile_info):
+	def get_tileset(self, index: int=0) -> Tileset:
+		"""
+		Returns the nth tileset associated tileset to the specified tilemap
+		:param index: Tileset index (0 - 7), 0 by default
+		"""
+		return Tileset(_tln.TLN_GetTilemapTileset2(self, index), False)
+
+	def set_tileset(self, tileset: Tileset, index:int = 0):
+		"""
+		Sets the nth tileset associated tileset to the specified tilemap
+		:param tileset: Reference to tileset object to associate
+		:param index: Tileset index (0 - 7), 0 by default
+		"""
+		ok = _tln.TLN_SetTilemapTileset2(self, tileset, index)
+		_raise_exception(ok)
+
+	def get_tile(self, row: int, col: int, tile_info: POINTER(TileInfo)):
 		"""
 		Gets data about a given tile
 
 		:param row: Vertical position of the tile (0 <= row < rows)
 		:param col: Horizontal position of the tile (0 <= col < cols)
-		:param tile_info: pointer to user-provided :class:`Tile` object where to get the data
+		:param tile_info: pointer to user-provided :class:`TileInfo` object where to get the data
 		"""
 		ok = _tln.TLN_GetTilemapTile(self, row, col, tile_info)
 		_raise_exception(ok)
 
-	def set_tile(self, row, col, tile_info):
+	def set_tile(self, row: int, col: int, tile_info: Optional[POINTER(TileInfo)]):
 		"""
 		Sets a tile inside the tilemap
 
@@ -1193,7 +1238,7 @@ class Tilemap(object):
 			del tile_info
 		_raise_exception(ok)
 
-	def copy_tiles(self, src_row, src_col, num_rows, num_cols, dst_tilemap, dst_row, dst_col):
+	def copy_tiles(self, src_row: int, src_col: int, num_rows: int, num_cols: int, dst_tilemap: "Tilemap", dst_row: int, dst_col: int):
 		"""
 		Copies blocks of tiles between two tilemaps
 
@@ -1241,13 +1286,13 @@ class Palette(object):
 	"""
 	The Palette object holds the color tables used by tileesets and spritesets to render sprites and backgrounds
 	"""
-	def __init__(self, handle, owner=True):
+	def __init__(self, handle: c_void_p, owner:bool = True):
 		self._as_parameter_ = handle
 		self.owner = owner
 		self.library = _tln
 
 	@classmethod
-	def create(cls, num_entries=256):
+	def create(cls, num_entries: int=256) -> "Palette":
 		"""
 		Static method that creates an empty palette
 
@@ -1261,7 +1306,7 @@ class Palette(object):
 			_raise_exception()
 
 	@classmethod
-	def fromfile(cls, filename):
+	def fromfile(cls, filename: str) -> "Palette":
 		"""
 		Static method that loads a palette from an Adobe Color Table (.act) file
 
@@ -1274,7 +1319,7 @@ class Palette(object):
 		else:
 			_raise_exception()
 
-	def clone(self):
+	def clone(self) -> "Palette":
 		"""
 		Creates a copy of the object
 
@@ -1286,7 +1331,7 @@ class Palette(object):
 		else:
 			_raise_exception()
 
-	def set_color(self, entry, color):
+	def set_color(self, entry: int, color: Color):
 		"""
 		Sets the RGB color value of a palette entry
 
@@ -1296,7 +1341,7 @@ class Palette(object):
 		ok = _tln.TLN_SetPaletteColor(self, entry, color.r, color.g, color.b)
 		_raise_exception(ok)
 
-	def mix(self, src_palette1, src_palette2, factor):
+	def mix(self, src_palette1: "Palette", src_palette2: "Palette", factor: int):
 		"""
 		Mixes two palettes
 
@@ -1307,7 +1352,7 @@ class Palette(object):
 		ok = _tln.TLN_MixPalettes(src_palette1, src_palette2, self, factor)
 		_raise_exception(ok)
 
-	def add_color(self, first, count, color):
+	def add_color(self, first: int, count: int, color: Color):
 		"""
 		Modifies a range of colors by adding the provided color value to the selected range.
 		The result is always a brighter color.
@@ -1319,7 +1364,7 @@ class Palette(object):
 		ok = _tln.TLN_AddPaletteColor(self, first, count, color.r, color.g, color.b)
 		_raise_exception(ok)
 
-	def sub_color(self, first, count, color):
+	def sub_color(self, first: int, count: int, color: Color):
 		"""
 		Modifies a range of colors by subtracting the provided color value to the selected range.
 		The result is always a darker color.
@@ -1331,7 +1376,7 @@ class Palette(object):
 		ok = _tln.TLN_SubPaletteColor(self, first, count, color.r, color.g, color.b)
 		_raise_exception(ok)
 
-	def mod_color(self, first, count, color):
+	def mod_color(self, first: int, count: int, color: Color):
 		"""
 		Modifies a range of colors by modulating (normalized product) the provided color value to the selected range.
 		The result is always a darker color.
@@ -1382,7 +1427,7 @@ class Bitmap(object):
 	:ivar pitch: number of bytes per each scanline
 	:ivar palette: Palette object attached inside the bitmap
 	"""
-	def __init__(self, handle, owner=True):
+	def __init__(self, handle: c_void_p, owner=True):
 		self._as_parameter_ = handle
 		self.owner = owner
 		self.library = _tln
@@ -1393,7 +1438,7 @@ class Bitmap(object):
 		self.palette = Palette(_tln.TLN_GetBitmapPalette(handle), False)
 
 	@classmethod
-	def create(cls, width, height, bpp=8):
+	def create(cls, width: int, height: int, bpp: int=8) -> "Bitmap":
 		"""
 		Static method that creates an empty bitmap
 
@@ -1409,7 +1454,7 @@ class Bitmap(object):
 			_raise_exception()
 
 	@classmethod
-	def fromfile(cls, filename):
+	def fromfile(cls, filename: str) -> "Bitmap":
 		"""
 		Static method that loads a BMP or PNG file
 
@@ -1422,7 +1467,7 @@ class Bitmap(object):
 		else:
 			_raise_exception()
 
-	def clone(self):
+	def clone(self) -> "Bitmap":
 		"""
 		Creates a copy of the object
 
@@ -1434,7 +1479,7 @@ class Bitmap(object):
 		else:
 			_raise_exception()
 
-	def get_data(self, x, y):
+	def get_data(self, x: int, y: int) -> c_void_p:
 		"""
 		Returns a pointer to the starting memory address
 
@@ -1451,7 +1496,7 @@ class Bitmap(object):
 
 class ObjectList(object):
 	"""
-	ObjectList reference
+	TODO: ObjectList reference
 	"""
 
 
@@ -1474,13 +1519,13 @@ class Sequence(object):
 	"""
 	The Sequence object holds the sequences to feed the animation engine
 	"""
-	def __init__(self, handle, owner=True):
+	def __init__(self, handle: c_void_p, owner: bool=True):
 		self._as_parameter_ = handle
 		self.owner = owner
 		self.library = _tln
 
 	@classmethod
-	def create_sequence(cls, name, target, frames):
+	def create_sequence(cls, name: str, target: int, frames: List[SequenceFrame]) -> "Sequence":
 		"""
 		Static method that creates an empty Sequence for Sprite and Tileset animations
 
@@ -1496,7 +1541,7 @@ class Sequence(object):
 			_raise_exception()
 
 	@classmethod
-	def create_cycle(cls, name, strips):
+	def create_cycle(cls, name: str, strips: List[ColorStrip]) -> "Sequence":
 		"""
 		Static method that creates an empty Sequence for Palette animations
 
@@ -1511,7 +1556,7 @@ class Sequence(object):
 			_raise_exception()
 
 	@classmethod
-	def create_sprite_sequence(cls, spriteset, basename, delay):
+	def create_sprite_sequence(cls, spriteset: Spriteset, basename: str, delay: int) -> "Sequence":
 		"""
 		Static method that creates a sprite sequence based on names inside a spriteset
 
@@ -1526,7 +1571,7 @@ class Sequence(object):
 		else:
 			_raise_exception()
 
-	def clone(self):
+	def clone(self) -> "Sequence":
 		"""
 		Creates a copy of the object
 
@@ -1538,7 +1583,7 @@ class Sequence(object):
 		else:
 			_raise_exception()
 
-	def get_info(self, info):
+	def get_info(self, info: POINTER(SequenceInfo)):
 		"""
 		Returns runtime info about a given sequence
 
@@ -1575,7 +1620,7 @@ class SequencePack(object):
 	:ivar count: number of sequences inside the pack
 	:ivar sequences: dictionary of contained sequences indexed by name
 	"""
-	def __init__(self, handle, owner=True):
+	def __init__(self, handle: c_void_p, owner: bool=True):
 		self._as_parameter_ = handle
 		self.owner = owner
 		self.library = _tln
@@ -1588,7 +1633,7 @@ class SequencePack(object):
 			self.sequences[_decode_string(sequence_info.name)] = sequence
 
 	@classmethod
-	def create(cls):
+	def create(cls) -> "SequencePack":
 		"""
 		Static method that creates an empty SequencePack object
 
@@ -1601,7 +1646,7 @@ class SequencePack(object):
 			_raise_exception()
 
 	@classmethod
-	def fromfile(cls, filename):
+	def fromfile(cls, filename: str) -> "SequencePack":
 		"""
 		Static method that loads a SQX file with sequence data (XML-based)
 
@@ -1614,7 +1659,7 @@ class SequencePack(object):
 		else:
 			_raise_exception()
 
-	def get_sequence(self, index):
+	def get_sequence(self, index: int) -> Sequence:
 		"""
 		Returns the nth sequence inside a sequence pack
 
@@ -1627,7 +1672,7 @@ class SequencePack(object):
 		else:
 			_raise_exception()
 
-	def find_sequence(self, name):
+	def find_sequence(self, name: str) -> Sequence:
 		"""
 		Finds a Sequence by its name
 
@@ -1640,7 +1685,7 @@ class SequencePack(object):
 		else:
 			_raise_exception()
 
-	def add_sequence(self, sequence):
+	def add_sequence(self, sequence: Sequence):
 		"""
 		Adds a Sequence to a SequencePack
 
@@ -1728,7 +1773,7 @@ class Layer(object):
 		self.bitmap = None
 		self.objectlist = None
 
-	def setup(self, tilemap, tileset=None):
+	def setup(self, tilemap: Tilemap, tileset: Optional[Tileset]=None):
 		"""
 		Enables a background layer by setting the specified tilemap and optional tileset
 
@@ -1740,11 +1785,13 @@ class Layer(object):
 			self.width = _tln.TLN_GetLayerWidth(self)
 			self.height = _tln.TLN_GetLayerHeight(self)
 			self.tilemap = tilemap
+			if tileset is not None:
+				tilemap.set_tileset(tileset)
 			return ok
 		else:
 			_raise_exception()
 
-	def set_tilemap(self, tilemap):
+	def set_tilemap(self, tilemap: Tilemap):
 		"""
 		Configures a tiled background layer with the specified tilemap
 
@@ -1761,7 +1808,7 @@ class Layer(object):
 		else:
 			_raise_exception()
 
-	def set_bitmap(self, bitmap):
+	def set_bitmap(self, bitmap: Bitmap):
 		"""
 		Configures a background layer with the specified full bitmap
 
@@ -1778,7 +1825,7 @@ class Layer(object):
 		else:
 			_raise_exception()
 
-	def set_palette(self, palette):
+	def set_palette(self, palette: Palette):
 		"""
 		Sets the color palette to the layer
 
@@ -1787,7 +1834,7 @@ class Layer(object):
 		ok = _tln.TLN_SetLayerPalette(self, palette)
 		_raise_exception(ok)
 
-	def set_position(self, x, y):
+	def set_position(self, x: int, y: int):
 		"""
 		Sets the position of the tileset that corresponds to the upper left corner of the viewport
 
@@ -1797,7 +1844,7 @@ class Layer(object):
 		ok = _tln.TLN_SetLayerPosition(self, int(x), int(y))
 		_raise_exception(ok)
 
-	def set_scaling(self, sx, sy):
+	def set_scaling(self, sx: float, sy: float):
 		"""
 		Enables layer scaling
 
@@ -1807,7 +1854,7 @@ class Layer(object):
 		ok = _tln.TLN_SetLayerScaling(self, sx, sy)
 		_raise_exception(ok)
 
-	def set_transform(self, angle, x, y, sx, sy):
+	def set_transform(self, angle: float, x: float, y: float, sx: float, sy: float):
 		"""
 		Enables layer affine transformation (rotation and scaling). All parameters are floating point values
 
@@ -1820,7 +1867,7 @@ class Layer(object):
 		ok = _tln.TLN_SetLayerTransform(self, angle, x, y, sx, sy)
 		_raise_exception(ok)
 
-	def set_pixel_mapping(self, pixel_map):
+	def set_pixel_mapping(self, pixel_map: POINTER(PixelMap)):
 		"""
 		Enables pixel mapping displacement table
 
@@ -1836,7 +1883,7 @@ class Layer(object):
 		ok = _tln.TLN_ResetLayerMode(self)
 		_raise_exception(ok)
 
-	def set_blend_mode(self, mode):
+	def set_blend_mode(self, mode: int):
 		"""
 		Enables blending mode with background objects
 
@@ -1845,16 +1892,16 @@ class Layer(object):
 		ok = _tln.TLN_SetLayerBlendMode(self, mode, 0)
 		_raise_exception(ok)
 
-	def set_column_offset(self, offsets):
+	def set_column_offset(self, offsets: Optional[POINTER(c_int)]=None):
 		"""
 		Enables column offset mode for tiles
 
-		:param offsets: User-provided list of integers with offsets, one per column of tiles. Pass None to disable
+		:param offsets: User-provided tuple of integers with offsets, one per column of tiles. Pass None to disable
 		"""
 		ok = _tln.TLN_SetLayerColumnOffset(self, offsets)
 		_raise_exception(ok)
 
-	def set_clip(self, x1, y1, x2, y2):
+	def set_clip(self, x1: int, y1: int, x2: int, y2: int):
 		"""
 		Enables clipping rectangle
 
@@ -1873,7 +1920,7 @@ class Layer(object):
 		ok = _tln.TLN_DisableLayerClip(self)
 		_raise_exception(ok)
 
-	def set_mosaic(self, pixel_w, pixel_h):
+	def set_mosaic(self, pixel_w: int, pixel_h: int):
 		"""
 		Enables mosaic effect (pixelation)
 
@@ -1904,7 +1951,7 @@ class Layer(object):
 		ok = _tln.TLN_EnableLayer(self)
 		_raise_exception(ok)
 		
-	def get_palette(self):
+	def get_palette(self) -> Palette:
 		"""
 		Gets the layer active palette
 
@@ -1916,7 +1963,7 @@ class Layer(object):
 		else:
 			_raise_exception()
 
-	def get_tile(self, x, y, tile_info):
+	def get_tile(self, x: int, y: int, tile_info: POINTER(TileInfo)):
 		"""
 		Gets detailed info about the tile located in Tilemap space
 
@@ -1927,7 +1974,7 @@ class Layer(object):
 		ok = _tln.TLN_GetLayerTile(self, x, y, tile_info)
 		_raise_exception(ok)
 
-	def set_priority(self, enable):
+	def set_priority(self, enable: bool):
 		"""
 		Sets full layer priority, appearing in front of regular sprites
 
@@ -1936,7 +1983,7 @@ class Layer(object):
 		ok = _tln.TLN_SetLayerPriority(self, enable)
 		_raise_exception(ok)
 
-	def set_parallax_factor(self, x, y):
+	def set_parallax_factor(self, x: int, y: int):
 		"""
 		Sets layer parallax factor to use in conjunction with Engine.set_world_position()
 		
@@ -1983,6 +2030,10 @@ _tln.TLN_GetSpritePalette.argtypes = [c_int]
 _tln.TLN_GetSpritePalette.restype = c_void_p
 _tln.TLN_SetSpriteAnimation.argtypes = [c_int, c_void_p, c_int]
 _tln.TLN_SetSpriteAnimation.restype = c_bool
+_tln.TLN_PauseSpriteAnimation.argtypes = [c_int]
+_tln.TLN_PauseSpriteAnimation.restype = c_bool
+_tln.TLN_ResumeSpriteAnimation.argtypes = [c_int]
+_tln.TLN_ResumeSpriteAnimation.restype = c_bool
 _tln.TLN_GetAnimationState.argtypes = [c_int]
 _tln.TLN_GetAnimationState.restype = c_bool
 _tln.TLN_DisableSpriteAnimation.argtypes = [c_int]
@@ -2003,12 +2054,12 @@ class Sprite(object):
 	:ivar index: sprite index, from 0 to num_sprites - 1
 	:ivar spriteset: assigned Spriteset object
 	"""
-	def __init__(self, index):
+	def __init__(self, index: int):
 		self.index = index
 		self._as_parameter_ = index
 		self.spriteset = None
 
-	def setup(self, spriteset, flags=0):
+	def setup(self, spriteset: Spriteset, flags: int=0):
 		"""
 		Enables a sprite by setting its Spriteset and optional flags
 
@@ -2019,7 +2070,7 @@ class Sprite(object):
 		self.spriteset = spriteset
 		_raise_exception(ok)
 
-	def set_spriteset(self, spriteset):
+	def set_spriteset(self, spriteset: Spriteset):
 		"""
 		Enables a sprite by setting its Spriteset
 
@@ -2029,7 +2080,7 @@ class Sprite(object):
 		self.spriteset = spriteset
 		_raise_exception(ok)
 
-	def set_flags(self, flags):
+	def set_flags(self, flags: int=0):
 		"""
 		Sets modification flags
 
@@ -2038,7 +2089,7 @@ class Sprite(object):
 		ok = _tln.TLN_SetSpriteFlags(self, flags)
 		_raise_exception(ok)
 		
-	def enable_flag(self, flag, value=True):
+	def enable_flag(self, flag: int, value: bool=True):
 		"""
 		Enables (or disables) specified flag for a sprite
 
@@ -2048,7 +2099,7 @@ class Sprite(object):
 		ok = _tln.TLN_EnableSpriteFlag(self, flag, value)
 		_raise_exception(ok)
 
-	def set_pivot(self, u, v):
+	def set_pivot(self, u: float, v: float):
 		"""
 		Sets sprite pivot point for placement and scaling source. By default is at (0,0) = top left corner. Uses normalized coordinates in [ 0.0 - 1.0] range.
 
@@ -2058,7 +2109,7 @@ class Sprite(object):
 		ok = _tln.TLN_SetSpritePivot(self, u, v)
 		_raise_exception(ok)
 
-	def set_position(self, x, y):
+	def set_position(self, x: int, y: int):
 		"""
 		Sets the sprite position in screen coordinates
 
@@ -2068,7 +2119,7 @@ class Sprite(object):
 		ok = _tln.TLN_SetSpritePosition(self, x, y)
 		_raise_exception(ok)
 
-	def set_world_position(self, x, y):
+	def set_world_position(self, x: int, y: int):
 		"""
 		Sets the sprite position in world space coordinates
 		
@@ -2078,7 +2129,7 @@ class Sprite(object):
 		ok = _tln.TLN_SetSpriteWorldPosition(self, x, y)
 		_raise_exception(ok)		
 
-	def set_picture(self, picture):
+	def set_picture(self, picture: Union[int,str]):
 		"""
 		Sets the actual graphic contained in the Spriteset to the sprite
 
@@ -2098,7 +2149,7 @@ class Sprite(object):
 			return
 		_raise_exception(ok)
 
-	def set_palette(self, palette):
+	def set_palette(self, palette: Palette):
 		"""
 		Assigns a Palette object to the sprite. By default it is assigned wit the Spriteset's own palette
 
@@ -2107,7 +2158,7 @@ class Sprite(object):
 		ok = _tln.TLN_SetSpritePalette(self, palette)
 		_raise_exception(ok)
 
-	def set_blend_mode(self, mode):
+	def set_blend_mode(self, mode: int):
 		"""
 		Enables blending mode with background objects
 
@@ -2116,7 +2167,7 @@ class Sprite(object):
 		ok = _tln.TLN_SetSpriteBlendMode(self, mode, 0)
 		_raise_exception(ok)
 
-	def set_scaling(self, sx, sy):
+	def set_scaling(self, sx: float, sy: float):
 		"""
 		Enables sprite scaling
 
@@ -2133,7 +2184,7 @@ class Sprite(object):
 		ok = _tln.TLN_ResetSpriteScaling(self)
 		_raise_exception(ok)
 
-	def get_picture(self):
+	def get_picture(self) -> int:
 		"""
 		Returns the index of the assigned picture from the Spriteset
 
@@ -2141,7 +2192,7 @@ class Sprite(object):
 		"""
 		return _tln.TLN_GetSpritePicture(self)
 
-	def enable_collision(self, mode):
+	def enable_collision(self, mode: bool=True):
 		"""
 		Enables pixel-accurate sprite collision detection with other sprites
 
@@ -2150,7 +2201,7 @@ class Sprite(object):
 		ok = _tln.TLN_EnableSpriteCollision(self, mode)
 		_raise_exception(ok)
 
-	def check_collision(self):
+	def check_collision(self) -> bool:
 		"""
 		Gets the collision status of the sprite. Requires :meth:`Sprite.enable_collision` set to True
 
@@ -2165,7 +2216,7 @@ class Sprite(object):
 		ok = _tln.TLN_DisableSprite(self)
 		_raise_exception(ok)
 
-	def get_palette(self):
+	def get_palette(self) -> Palette:
 		"""
 		Gets the sprite active palette
 
@@ -2177,7 +2228,7 @@ class Sprite(object):
 		else:
 			_raise_exception()
 
-	def set_animation(self, sequence, loop):
+	def set_animation(self, sequence: Sequence, loop: int=0):
 		"""
 		Starts a Sprite animation
 
@@ -2187,13 +2238,27 @@ class Sprite(object):
 		ok = _tln.TLN_SetSpriteAnimation(self, sequence, loop)
 		_raise_exception(ok)
 
-	def get_animation_state(self):
+	def get_animation_state(self) -> bool:
 		"""
 		Gets the state of the animation
 
 		:return: True if still running, False if it has finished
 		"""
 		return _tln.TLN_GetAnimationState(self)
+
+	def pause_animation(self):
+		"""
+		Paused sprite animation
+		"""
+		ok = _tln.TLN_PauseSpriteAnimation(self)
+		_raise_exception(ok)
+	
+	def resume_animation(self):
+		"""
+		Resumes paused animation
+		"""
+		ok = _tln.TLN_ResumeSpriteAnimation(self)
+		_raise_exception(ok)
 
 	def disable_animation(self):
 		"""
@@ -2202,7 +2267,7 @@ class Sprite(object):
 		ok = _tln.TLN_DisableSpriteAnimation(self)
 		_raise_exception(ok)
 
-	def get_state(self, state):
+	def get_state(self, state: POINTER(SpriteState)):
 		"""
 		Returns runtime info about the sprite
 
@@ -2218,7 +2283,7 @@ class Sprite(object):
 		ok = _tln.TLN_SetFirstSprite(self)
 		_raise_exception(ok)
 
-	def set_next(self, next):
+	def set_next(self, next: int):
 		"""
 		Sets the next sprite to after this one, builds list
 
@@ -2227,7 +2292,7 @@ class Sprite(object):
 		ok = _tln.TLN_SetNextSprite(self, next)
 		_raise_exception(ok)
 	
-	def enable_masking(self, enable):
+	def enable_masking(self, enable: bool=True):
 		"""
 		Enables or disables masking for this sprite, if enabled it won't be drawn inside the region set up with Engine.set_sprite_mask_region()
 		"""
@@ -2251,11 +2316,11 @@ class Animation(object):
 
 	:ivar index: animation index, from 0 to num_animations - 1
 	"""
-	def __init__(self, index):
+	def __init__(self, index: int):
 		self.index = index
 		self._as_parameter_ = index
 
-	def set_palette_animation(self, palette, sequence, blend):
+	def set_palette_animation(self, palette: Palette, sequence: Sequence, blend: bool=True):
 		"""
 		Starts a color cycle animation for Palette object
 
@@ -2266,7 +2331,7 @@ class Animation(object):
 		ok = _tln.TLN_SetPaletteAnimation(self, palette, sequence, blend)
 		_raise_exception(ok)
 
-	def set_palette_animation_source(self, palette):
+	def set_palette_animation_source(self, palette: Palette):
 		"""
 		Sets the source palette of a color cycle animation already in motion.
 		Useful for combining color cycling and palette interpolation at the same time
