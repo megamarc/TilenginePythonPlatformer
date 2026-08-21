@@ -1,0 +1,4 @@
+#!/bin/bash
+cd src
+python -m platformer
+cd ..

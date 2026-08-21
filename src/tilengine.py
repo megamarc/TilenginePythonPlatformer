@@ -108,8 +108,10 @@ class Input:
 	"""
 	Available inputs to query in :meth:`Window.get_input`
 	"""
-	NONE, UP, DOWN, LEFT, RIGHT, A, B, C, D, E,	F, START, QUIT, CRT = range(14)
-	BUTTON1, BUTTON2, BUTTON3, BUTTON4, BUTTON5, BUTTON6 = range(A, START)
+	NONE, UP, DOWN, LEFT, RIGHT, BUTTON1, BUTTON2, BUTTON3, BUTTON4, BUTTON5, BUTTON6 = range(11)
+	A, B, X, Y, LB, RB, LT, RT, SELECT, START, L3, R3 = range(BUTTON1, BUTTON1 + 12)
+	QUIT = 30
+	CRT  = 31
 	P1, P2, P3, P4 = range(0, 128, 32)
 
 

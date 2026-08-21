@@ -1,6 +1,6 @@
 """ Tilengine python platformer demo """
 
-from tilengine import Engine, Window
+from tilengine import Engine, Window, WindowFlags
 from raster_effect import raster_effect
 from world import World
 from player import Player
@@ -30,7 +30,7 @@ game.sounds.load("hurt", "hurt.wav")
 game.sounds.load("eagle", "vulture.wav")
 
 # create window & start main loop
-game.window = Window.create()		
+game.window = Window.create(flags=WindowFlags.FULLSCREEN)
 game.world.start()
 while game.window.process():
     for actor in game.actors:
